@@ -1,0 +1,18 @@
+# Stage 1: supervised U-Net baseline (filled in once we write the model)
+experiment: unet_baseline
+data:
+  train_split: data/splits/train.txt
+  val_split: data/splits/val.txt
+  test_split: data/splits/test.txt
+  n_time_bins: 256
+model:
+  name: unet
+  in_channels: 256     # time bins as channels
+  out_channels: 1      # lifetime map
+  base_channels: 32
+train:
+  batch_size: 4
+  lr: 1.0e-4
+  epochs: 50
+  loss: l1
+  seed: 42

@@ -1,0 +1,13 @@
+# data and large outputs are not committed
+data/raw/**
+data/processed/**
+checkpoints/**
+logs/**
+!**/.gitkeep
+
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+*.tar
+
+external/
