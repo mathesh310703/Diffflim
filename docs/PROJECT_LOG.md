@@ -931,3 +931,27 @@ Problems and fixes: In the first complete run, DiffFLIM sampled the full recordi
 
 Next: a real sample with a known lifetime (FLUTE fluorescein, thinned) to check accuracy and calibration on real data; FLIMngo-protocol evaluation on simulated data.
 
+### 2026-11-22 – Pre-flight check for the DiffFLIM v3cells training run
+
+Goal: Check splits, data download, earlier fixes, the training start and the complete post-training chain before the overnight training run of DiffFLIM on all current training cells (v3cells), without training the model.
+
+Changes:
+
+- `scripts/post_training_chain.sh` (new): evaluation on the v3 test set, calibration (74 cells, 10 DDIM steps), real-data evaluation with the new factors, versions table; `quick` mode for dry runs.
+- `scripts/model_versions.py` (new) and `results/tables/model_versions.csv` (new, one row for v2).
+- `results/README.md` and `docs/TECHNICAL_REPORT.md`: the two scripts and the new table.
+
+Settings: dry run `python scripts/train_diffflim.py --simulator v3 --minutes 1 --name diffflim_v3cells_dryrun --workers 16 --ckpt-every 30`, then `bash scripts/post_training_chain.sh diffflim_v3cells_dryrun v3cells_dryrun quick`.
+
+Results: The split files exist (`hpa_test2.txt` with 100 IDs). The HPA download was still running and had reached 590 complete samples (2363 files; one sample with missing channels, which `complete_ids()` skips). Current counts: training 386, test 30, second test 100, calibration 20, extra calibration 54, together 590; no two sets overlap, every complete sample is in exactly one set, and `train_ids()` contains none of the 204 held-out IDs. The training script computes the training list once at the start (`train_ids(write=True)`), passes it to the data workers and stores it in every checkpoint, so samples that finish downloading during the run are not used; `complete_ids()` requires all four channel PNGs and decodes each of them, so incomplete or partly written samples are skipped.
+
+The one-minute dry run started normally, reported 386 training IDs and 204 held-out IDs, and saved a checkpoint whose stored list of 386 IDs equals `data/splits/hpa_train.txt` and contains no held-out or second-test ID. It reached 215 steps (3.6 iterations per second in the first minute, while the data workers decode the HPA images; DiffFLIM v2 ran at 8.6 per second over 6 hours). The quick chain ran end to end in 5 minutes on this checkpoint (evaluation, calibration, real data, versions table). All outputs of the dry run (37 files with `dryrun` in the name, including the checkpoint, caches, tables, figures and logs) were deleted afterwards, `data/splits/hpa_train.txt` was restored to its previous content (246 IDs), and the versions table was rebuilt with v2 only. The v2 row reproduced the known numbers (9.54, 6.53 and 4.27 % lifetime error at 10, 100 and 1000 photons; coverage 90.0 % and 87.6 %; real data p = 0.0087, split-half 3.4 %).
+
+The earlier fixes were confirmed: `scripts/plot_training_curves.py` exists, the docstring of `src/models/diffflim.py` and the message of `scripts/train_diffflim.py` state the 10-step default, and `train_ids()` writes nothing by default. All 32 tests passed. Disk D: had 202 GB free; the run and its chain need well under 1 GB (two checkpoints of 73 MB, about 135 MB of prediction caches, logs and figures, and about 180 MB for the rest of the HPA download).
+
+Compared to before: the post-training chain and the versions table exist as scripts and were tested end to end.
+
+Problems and fixes: none. The training list of the overnight run will contain the samples that are complete when it starts (386 now, possibly more); the exact list is recorded in the checkpoint and in `data/splits/hpa_train.txt`.
+
+Next: start the overnight run, for example `python scripts/train_diffflim.py --simulator v3 --minutes 360 --name diffflim_v3cells --snapshot-at 180 --ckpt-every 30 --workers 16`, followed by `bash scripts/post_training_chain.sh diffflim_v3cells v3cells`.
+

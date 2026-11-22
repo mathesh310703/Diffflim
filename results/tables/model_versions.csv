@@ -1,0 +1,2 @@
+model,checkpoint,train_minutes,train_steps,n_train_ids,n_test_images,tau_mare_pct_10,tau_mare_pct_100,tau_mare_pct_1000,tau_mare_pct_all,tau_bias_pct_all,int_mare_pct_10,int_mare_pct_100,int_mare_pct_1000,int_mare_pct_all,cov90_tau_per_level,cov90_int_per_level,real_tau_abeta_ns,real_tau_mscarlet_ns,real_mannwhitney_p,real_splithalf_diff_pct
+v2,checkpoints/diffflim_v2.pt,360,186116,246,240,9.541,6.527,4.272,6.396,1.506,4.443,2.817,2.022,2.836,0.9003,0.8759,2.716,3.067,0.008658,3.411
