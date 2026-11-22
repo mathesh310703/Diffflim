@@ -4,7 +4,7 @@
 
 *Last updated: 2026-11-22*
 
-The project has two simulators. Simulator v2 (`src/data/simulate.py`) produces smooth blob-shaped cells with a Gaussian IRF and was used to train DiffFLIM v1. Simulator v3 (`src/data/simulate_v3.py`) follows the FLIMngo simulation (Human Protein Atlas (HPA) crops, up to four lifetime components per pixel, Perlin-noise amplitudes, twelve IRFs with laser jitter) but with real photon counts. Of the 566 complete Human Protein Atlas samples, 30 are fixed test IDs, 100 are a second fixed test set reserved for the final evaluation (nothing has been evaluated on it), 20 are fixed calibration IDs and 54 extra calibration IDs that DiffFLIM v2 never saw; the remaining 362 are training IDs, of which 246 were used by DiffFLIM v2 and the retrained FLIMngo. The v3 test set (40 images per level), both v3 calibration sets (100 images per level each) and the second test set (100 images per level) are paired across photon levels.
+The project has two simulators. Simulator v2 (`src/data/simulate.py`) produces smooth blob-shaped cells with a Gaussian IRF and was used to train DiffFLIM v1. Simulator v3 (`src/data/simulate_v3.py`) follows the FLIMngo simulation (Human Protein Atlas (HPA) crops, up to four lifetime components per pixel, Perlin-noise amplitudes, twelve IRFs with laser jitter) but with real photon counts. Of the 566 complete Human Protein Atlas samples, 30 are fixed test IDs, 100 are a second fixed test set reserved for the final evaluation (nothing has been evaluated on it), 20 are fixed calibration IDs and 54 extra calibration IDs that DiffFLIM v2 never saw; the remaining 362 were training IDs, of which 246 were used by DiffFLIM v2 and the retrained FLIMngo. The download has continued since; every new complete sample becomes a training ID, and each training run stores its list in the checkpoint (DiffFLIM v3cells: 386 IDs). The v3 test set (40 images per level), both v3 calibration sets (100 images per level each) and the second test set (100 images per level) are paired across photon levels.
 
 DiffFLIM v2 (v1 architecture, trained on v3 data) is the most accurate lifetime estimator on the v3 test set at every photon level. In the main comparison every method gets the same information: FLIMngo uses a background mask computed from the counts (`flimngo_recall`, 98 to 100 % of the true foreground on the test set), DiffFLIM and the MLE get no mask. DiffFLIM is evaluated with 10 DDIM steps and 10 samples (0.11 s per image), which gives the same error and coverage as 50 steps. Lifetime error (median absolute relative error, all foreground pixels, 40 images per level):
 
@@ -20,9 +20,12 @@ The uncalibrated DiffFLIM v2 intervals are too narrow. Calibrated on all 74 cali
 
 First real data: on FLIMngo's 12 raw *C. elegans* recordings (1 s, 10 to 49 photons per worm pixel, no ground truth), every method finds the shorter lifetime of Aβ-mScarlet than of mScarlet reported by FLIMngo (Mann–Whitney p = 0.0022 to 0.0087, 6 versus 6 recordings). DiffFLIM v2 is as consistent between two independent photon halves of a recording as the 5 × 5 binned MLE (3.4 against 3.5 % median difference; FLIMngo 4.6 %, MLE 16.4 %), but its group difference is smaller (0.35 against 0.50 to 0.53 ns). The real recordings differ from the training data in photon range (many pixels below 10 photons), image size (tiling), background structure (empty first bins, signal-proportional offset) and content (moving worms). The protocol is fixed in `scripts/eval_real_celegans.py`.
 
+More training cells did not help measurably. DiffFLIM v3cells, the DiffFLIM v2 run repeated on 386 instead of 246 training cells with the same settings and the same 186,116 steps, had the same lifetime error on the v3 test set (9.43 / 6.51 / 4.40 % at 10 / 100 / 1000 photons against 9.54 / 6.53 / 4.27 %; paired differences within ±0.1 percentage points except −0.36 at 10 photons, interval −0.91 to +0.02), the same calibrated coverage (90.1 and 87.6 %) and, on the real recordings, the same group difference (0.34 against 0.35 ns, both groups about 0.09 ns higher; p = 0.0043 against 0.0087) and a similar split-half difference (2.8 against 3.4 %). Doubling the training steps reduced the lifetime error by about 0.5 percentage points for both cell counts. DiffFLIM v2 (6 h) remains the model of the main comparison.
+
 Open problems:
 
 - The calibration of DiffFLIM cannot be checked on the *C. elegans* data (no ground truth); a real sample with a known lifetime is needed.
+- Every DiffFLIM setting has been trained once with one seed; the variation between runs is unknown, so differences of a few tenths of a percentage point between versions cannot be interpreted.
 - The retrained FLIMngo would need a second training run with weight averaging or learning-rate decay and a larger validation set to remove its offset; this has not been done.
 - The recall-oriented FLIMngo mask relies on the clean foreground/background separation of the v3 data and is untested on real data.
 - The v3 ground truth contains per-pixel lifetime jitter (median 4.4 % of τ on the foreground), close to the DiffFLIM v2 error at 1000 photons; the predicted mean maps are smooth.
@@ -30,7 +33,7 @@ Open problems:
 
 A technical report that explains the system, every code file and every result file is available in `docs/TECHNICAL_REPORT.md` and `docs/TECHNICAL_REPORT.pdf`; `results/README.md` describes every figure and table.
 
-Next steps: evaluate all methods under FLIMngo's protocol on simulated data, test the methods on a real sample with a known lifetime (FLUTE fluorescein, thinned), retrain FLIMngo once with weight averaging, and keep the second test set untouched until the final evaluation.
+Next steps: decide whether to train DiffFLIM longer (more steps helped, more cells did not) and measure the run-to-run variation with a second seed, evaluate all methods under FLIMngo's protocol on simulated data, test the methods on a real sample with a known lifetime (FLUTE fluorescein, thinned), retrain FLIMngo once with weight averaging, and keep the second test set untouched until the final evaluation.
 
 ## Decisions
 
@@ -954,4 +957,59 @@ Compared to before: the post-training chain and the versions table exist as scri
 Problems and fixes: none. The training list of the overnight run will contain the samples that are complete when it starts (386 now, possibly more); the exact list is recorded in the checkpoint and in `data/splits/hpa_train.txt`.
 
 Next: start the overnight run, for example `python scripts/train_diffflim.py --simulator v3 --minutes 360 --name diffflim_v3cells --snapshot-at 180 --ckpt-every 30 --workers 16`, followed by `bash scripts/post_training_chain.sh diffflim_v3cells v3cells`.
+
+### 2026-11-22 – DiffFLIM v3cells: the DiffFLIM v2 run on all 386 training cells
+
+Goal: Find out whether more training cells improve DiffFLIM. The author repeated the DiffFLIM v2 training with exactly the same settings and the same number of optimiser steps, changing only the training list (all current training IDs, 386 instead of 246), and evaluated both models and their halfway snapshots with the same post-training chain on the v3 test set and on the real *C. elegans* recordings.
+
+Changes:
+
+- `scripts/train_diffflim.py`: new options `--steps` (stop after a number of optimiser steps; `--minutes` unchanged and used when `--steps` is 0) and `--snapshot-at-step STEP:SUFFIX` (keeps `checkpoints/{name}_{SUFFIX}.pt` after that step). Tested with 30 steps and a snapshot at step 20 before the run; the test outputs were deleted.
+- `scripts/post_training_chain.sh`: new option `noeval` (skips the evaluation step, so the 50-step evaluation files of an older model are not overwritten).
+- `scripts/plot_versions.py` (new): `results/figures/versions.png`.
+- `scripts/compare_versions.py` (new): `results/tables/model_versions_paired.csv`.
+- `checkpoints/diffflim_v3cells.pt` and `checkpoints/diffflim_v3cells_3h.pt` (new); logs `logs/diffflim_v3cells.csv`, `logs/diffflim_v3cells_stdout.txt`, `logs/v3cells_run.txt`, `logs/chain_v3cells_*.txt`, `logs/chain_v3cells_3h_*.txt`, `logs/chain_v2_3h_*.txt`.
+- New result files: for the tags `v3cells` and `v3cells_3h` the evaluation (`diffflim_<tag>.csv`, `coverage_<tag>.csv`, `error_vs_photons_<tag>.png`, `diffflim_<tag>_examples.png`), the calibration (`calibration_factors_<tag>_extra_s10.csv`, `coverage_calibrated_<tag>_extra_s10.csv` and two figures) and the real data (three tables, two figures); for `v2_3h` the 10-step calibration on 74 cells and the real data; `results/tables/model_versions.csv` now has four rows. Prediction caches in `data/processed/` (`preds_<tag>_s10_n10_*.npz`, `real_celegans_diffflim_<tag>.npz`).
+- `results/README.md` (now 52 figures and 56 tables) and `docs/TECHNICAL_REPORT.md` (Sections 4.3, 5.6, 6.18, 7.6, 8, 10 and 11).
+
+Settings:
+
+- Training: `python scripts/train_diffflim.py --simulator v3 --steps 186116 --snapshot-at-step 92168:3h --name diffflim_v3cells --batch 16 --lr 2e-4 --warmup 500 --ema 0.999 --base 64 --prediction v --ckpt-every 30 --workers 16 --seed 0`; everything else as DiffFLIM v2. 186,116 is the last step of DiffFLIM v2 and 92,168 the step of its 3-hour snapshot (`checkpoints/diffflim_v2_180min.pt`).
+- Training IDs: `train_ids()` at the start, 386 IDs (590 complete samples minus 30 test, 100 second-test, 20 calibration and 54 extra calibration IDs), stored in the checkpoint and in `data/splits/hpa_train.txt`; they contain all 246 IDs of DiffFLIM v2 and none of the 204 held-out IDs (checked on the checkpoint after the run).
+- Post-training chain: `bash scripts/post_training_chain.sh diffflim_v3cells v3cells`, the same for `diffflim_v3cells_3h v3cells_3h`, and `bash scripts/post_training_chain.sh diffflim_v2_180min v2_3h noeval`. 10 DDIM steps × 10 samples, 40 test images per level, calibration on 74 cells with `otsu_adaptive`, fixed real-data protocol with each model's own factors.
+- Paired comparison: per-image median absolute relative error on the true foreground, mean difference per level, 95 % interval from 5000 resamples of the 30 test cells (seed 0).
+
+Results: The run took 403.4 minutes at 7.3 iterations per second on average (DiffFLIM v2: 360 minutes, 8.6 per second); the snapshot at step 92,168 was saved after 209 minutes. The data-wait fraction was 10 to 12 % throughout (v2: 17 %) and the GPU utilisation about 40 %. The training loss matched that of v2 at the same step (means over about 40 log entries: 0.0232 against 0.0234 at step 26,050, 0.0212 against 0.0211 at step 79,150). There were no warnings or errors.
+
+Results on the v3 test set (`model_versions.csv`):
+
+| Model | Training cells | Steps | Lifetime error 10 / 100 / 1000 photons | Lifetime error, all | Intensity error, all | Lifetime bias, all | Coverage 90 % lifetime / intensity |
+|---|---|---|---|---|---|---|---|
+| DiffFLIM v2, 3 h | 246 | 92,168 | 9.95 / 6.82 / 4.64 % | 6.74 % | 3.00 % | +1.70 % | 90.2 / 87.7 % |
+| DiffFLIM v2, 6 h | 246 | 186,116 | 9.54 / 6.53 / 4.27 % | 6.40 % | 2.84 % | +1.51 % | 90.0 / 87.6 % |
+| DiffFLIM v3cells, step 92k | 386 | 92,168 | 9.76 / 6.83 / 4.79 % | 6.76 % | 3.06 % | +1.73 % | 90.0 / 87.4 % |
+| DiffFLIM v3cells, step 186k | 386 | 186,116 | 9.43 / 6.51 / 4.40 % | 6.39 % | 2.87 % | +1.67 % | 90.1 / 87.6 % |
+
+The differences between the models are small, so they were tested in pairs on the same test images (`scripts/compare_versions.py`, `model_versions_paired.csv`): per image, the median absolute relative error; per pair, the mean difference over the images of a level, with a 95 % interval from 5000 resamples of the 30 test cells. At the same number of steps, v3cells minus v2 gave a lifetime error difference of −0.36 percentage points at 10 photons (interval −0.91 to +0.02) and between −0.09 and +0.09 points at the other levels (all intervals include zero); pooled −0.05 points (−0.39 to +0.23). For the intensity, the pooled difference was +0.01 points (−0.07 to +0.07); v3cells was slightly better at 50 photons (−0.10, interval −0.20 to −0.01) and slightly worse at 1000 photons (+0.21, interval +0.03 to +0.38). Between the snapshots at step 92,168 the pattern was the same, with the only clear difference at 10 photons (lifetime −0.43 points, interval −0.80 to −0.11). The lifetime bias at 1000 photons rose from +1.3 % (v2) to +2.0 % (v3cells). For comparison, doubling the number of steps reduced the pooled lifetime error by 0.47 points for v2 (interval −0.65 to −0.31) and by 0.48 points for v3cells (−0.77 to −0.24), at every photon level; the effect of training length was about ten times the effect of the additional cells. The coverage of the calibrated 90 % intervals did not change (90.0 to 90.2 % for the lifetime, 87.4 to 87.7 % for the intensity, all four models).
+
+Results on the real recordings:
+
+| Model | Aβ-mScarlet | mScarlet | Difference | Mann–Whitney p | Split-half difference |
+|---|---|---|---|---|---|
+| DiffFLIM v2, 3 h | 2.66 ns | 3.09 ns | 0.43 ns | 0.0022 | 3.0 % |
+| DiffFLIM v2, 6 h | 2.72 ns | 3.07 ns | 0.35 ns | 0.0087 | 3.4 % |
+| DiffFLIM v3cells, step 92k | 2.83 ns | 3.18 ns | 0.35 ns | 0.0043 | 3.4 % |
+| DiffFLIM v3cells, step 186k | 2.81 ns | 3.15 ns | 0.34 ns | 0.0043 | 2.8 % |
+
+On the *C. elegans* recordings (fixed protocol, own calibration factors per model), both v3cells models found the shorter lifetime of Aβ-mScarlet. Both groups moved up by about 0.09 ns compared with DiffFLIM v2 (6 h), so the group difference stayed at 0.34 to 0.35 ns, still smaller than the 0.50 to 0.53 ns of the MLE, the binned MLE and FLIMngo. Without ground truth it is not known which absolute level is closer to the truth. With 6 against 6 recordings the exact Mann–Whitney p value can take only a few small values: 0.0022 when the groups are completely separated, 0.0043 with one and 0.0087 with two Aβ/mScarlet pairs in the wrong order; the change from 0.0087 (v2) to 0.0043 (v3cells) is one pair of recordings. The split-half difference was 2.8 % for v3cells against 3.4 % for v2, but 3.4 % for the v3cells snapshot against 3.0 % for the v2 snapshot, so the direction is not consistent between training lengths; the simulated reference of the same test (6.4 to 7.5 % for all four models) did not change either.
+
+![Model versions](../results/figures/versions.png)
+
+In summary, 140 additional training cells at the same number of steps did not change DiffFLIM measurably on simulated or real data. The only consistent improvement was a lower lifetime error at 10 photons, by about 0.4 percentage points, at both step counts; the intensity at 1000 photons became slightly worse. Training twice as long had about ten times the effect. Each setting was trained once with one seed, so the run-to-run variation is unknown and may be as large as the differences found. DiffFLIM v2 (6 h) remains the model of the main comparison.
+
+Compared to before: the first DiffFLIM model trained on more than 246 cells, and the first comparison of model versions with a common chain, a paired test and the same number of steps.
+
+Problems and fixes: The training ran at 7.0 to 7.3 iterations per second instead of the 8.6 of DiffFLIM v2, so it took 43 minutes longer; because the run was defined by steps, the comparison was not affected. The data loading was not the cause (low data-wait fraction, GPU utilisation about 40 %); during the run the HPA download continued and other programs that use the GPU (game launchers, a browser) were open, but the cause was not established. Over the last 15 minutes the speed rose to 8.0 per second. The v2 3-hour snapshot had no 10-step test predictions and no 74-cell, 10-step calibration; the chain was run with `noeval`, so its 50-step evaluation files (`diffflim_v2_3h.csv`, `coverage_v2_3h.csv` and their figures) were kept and the 10-step test predictions were computed by the calibration step. The image counts per photon level in the paired test come from 30 cells, so the intervals resample cells, not images; an image-level bootstrap gave narrower intervals with the same conclusions.
+
+Next: decide whether a longer DiffFLIM run is worth its time, and train one setting with a second seed to measure the variation between runs before interpreting differences of a few tenths of a percentage point.
 

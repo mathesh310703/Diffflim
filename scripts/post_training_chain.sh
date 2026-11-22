@@ -11,17 +11,27 @@
 # Usage:
 #   bash scripts/post_training_chain.sh <checkpoint name> <tag>          # full chain (about 30 min)
 #   bash scripts/post_training_chain.sh <checkpoint name> <tag> quick    # dry run: tiny image counts
+#   bash scripts/post_training_chain.sh <checkpoint name> <tag> noeval   # skip step 1 (eval files kept)
 # Example: bash scripts/post_training_chain.sh diffflim_v3cells v3cells
 set -e
 NAME=$1
 TAG=$2
 CKPT=checkpoints/$NAME.pt
-if [ "$3" = "quick" ]; then NIMG=2; NCAL=3; NTEST=2; else NIMG=40; NCAL=0; NTEST=0; fi
+NIMG=40; NCAL=0; NTEST=0; EVAL=1
+for opt in "${@:3}"; do
+    case "$opt" in
+        quick) NIMG=2; NCAL=3; NTEST=2 ;;
+        noeval) EVAL=0 ;;   # skip step 1, e.g. for an older model whose 50-step eval files must not change
+        *) echo "unknown option $opt"; exit 1 ;;
+    esac
+done
 test -f "$CKPT" || { echo "missing $CKPT"; exit 1; }
 
-python -W ignore scripts/eval_diffflim.py --ckpt "$CKPT" --tag "$TAG" --test-set data/raw/own/sim_v3_test \
-    --n-images $NIMG > "logs/chain_${TAG}_eval.txt" 2>&1
-echo "eval done"
+if [ "$EVAL" = 1 ]; then
+    python -W ignore scripts/eval_diffflim.py --ckpt "$CKPT" --tag "$TAG" --test-set data/raw/own/sim_v3_test \
+        --n-images $NIMG > "logs/chain_${TAG}_eval.txt" 2>&1
+    echo "eval done"
+fi
 python -W ignore scripts/calibrate_diffflim.py --ckpt "$CKPT" --tag "${TAG}_extra_s10" --preds-tag "$TAG" --smooth \
     --photon-estimator otsu_adaptive --test-set data/raw/own/sim_v3_test \
     --calib-dir data/raw/own/sim_v3_calib,data/raw/own/sim_v3_calib_extra \

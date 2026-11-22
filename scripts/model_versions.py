@@ -33,6 +33,8 @@ from src.data import simulate_v3 as v3  # noqa: E402
 from src.paths import CHECKPOINTS, PROCESSED, TABLES  # noqa: E402
 
 LEVELS = (10, 100, 1000)
+# checkpoints that do not follow the name checkpoints/diffflim_<tag>.pt
+CKPT_ALIASES = {"v2_3h": "diffflim_v2_180min.pt"}
 
 
 def mare(est, gt, mask):
@@ -48,12 +50,12 @@ def row_for(tag):
              "cov": TABLES / f"coverage_calibrated_{tag}_extra_s10.csv",
              "groups": TABLES / f"real_celegans_groups_{tag}.csv",
              "split": TABLES / f"real_celegans_splithalf_{tag}.csv",
-             "ckpt": CHECKPOINTS / f"diffflim_{tag}.pt"}
+             "ckpt": CHECKPOINTS / CKPT_ALIASES.get(tag, f"diffflim_{tag}.pt")}
     if not all(f.exists() for f in files.values()):
         return None
     ck = torch.load(files["ckpt"], map_location="cpu", weights_only=False)
     ids = ck.get("args", {}).get("train_ids")
-    n_ids = len(ids) if ids else (len(v3.diffflim_v2_train_ids()) if tag == "v2" else "")
+    n_ids = len(ids) if ids else (len(v3.diffflim_v2_train_ids()) if tag.startswith("v2") else "")
     row = {"model": tag, "checkpoint": files["ckpt"].relative_to(ROOT).as_posix(),
            "train_minutes": round(ck["elapsed_s"] / 60, 1), "train_steps": ck["step"], "n_train_ids": n_ids}
     with np.load(files["preds"]) as z:

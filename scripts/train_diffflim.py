@@ -6,6 +6,11 @@ At the end, a quick sampling check runs on one test image (100 photons) and is c
 Usage:
     python scripts/train_diffflim.py --minutes 2 --name diffflim_smoke     # smoke test
     python scripts/train_diffflim.py --minutes 60                          # main run
+    python scripts/train_diffflim.py --simulator v3 --steps 186116 --snapshot-at-step 92168:3h         --name diffflim_v3cells --ckpt-every 30 --workers 16              # fixed number of steps
+
+--steps N stops after N optimiser steps instead of after --minutes (the time limit is then not
+used). --snapshot-at-step N:SUFFIX keeps a copy of the checkpoint after step N as
+checkpoints/{name}_{SUFFIX}.pt (the time-based --snapshot-at still works).
 """
 import argparse
 import copy
@@ -74,6 +79,10 @@ def main():
                     help="lifetime normalisation range in ns (default: 0.5 5 for v2, 0.1 12 for v3)")
     ap.add_argument("--snapshot-at", type=float, nargs="*", default=[],
                     help="also keep copies of the checkpoint at these training minutes (e.g. 180)")
+    ap.add_argument("--steps", type=int, default=0,
+                    help="stop after this many optimiser steps (0: use --minutes); the time limit is then ignored")
+    ap.add_argument("--snapshot-at-step", nargs="*", default=[],
+                    help="STEP:SUFFIX, keep checkpoints/{name}_{SUFFIX}.pt after STEP steps (e.g. 92168:3h)")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--ckpt-every", type=float, default=10, help="minutes")
     ap.add_argument("--log-every", type=int, default=50, help="steps")
@@ -115,11 +124,12 @@ def main():
     t_start = time.perf_counter()
     t_log, t_ckpt, wait, losses, step = t_start, t_start, 0.0, [], 0
     pending_snapshots = sorted(args.snapshot_at)
+    step_snapshots = {int(x.split(":")[0]): x.split(":")[1] for x in args.snapshot_at_step}
     t_fetch = time.perf_counter()
     for batch in loader:
         wait += time.perf_counter() - t_fetch
         elapsed = time.perf_counter() - t_start
-        if elapsed > args.minutes * 60:
+        if (args.steps and step >= args.steps) or (not args.steps and elapsed > args.minutes * 60):
             break
 
         binned = batch["binned"].to(device, non_blocking=True)
@@ -157,6 +167,10 @@ def main():
             snap = CHECKPOINTS / f"{args.name}_{int(m)}min.pt"
             save_checkpoint(snap, model, ema, opt, step, elapsed, args)
             pending_snapshots.remove(m)
+            print(f"snapshot saved: {snap.name} (step {step})", flush=True)
+        if step in step_snapshots:
+            snap = CHECKPOINTS / f"{args.name}_{step_snapshots.pop(step)}.pt"
+            save_checkpoint(snap, model, ema, opt, step, elapsed, args)
             print(f"snapshot saved: {snap.name} (step {step})", flush=True)
         if time.perf_counter() - t_ckpt > args.ckpt_every * 60:
             save_checkpoint(ckpt_path, model, ema, opt, step, time.perf_counter() - t_start, args)
