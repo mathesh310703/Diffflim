@@ -6,25 +6,25 @@
 
 The project has two simulators. Simulator v2 (`src/data/simulate.py`) produces smooth blob-shaped cells with a Gaussian IRF and was used to train DiffFLIM v1. Simulator v3 (`src/data/simulate_v3.py`) follows the FLIMngo simulation (Human Protein Atlas (HPA) crops, up to four lifetime components per pixel, Perlin-noise amplitudes, twelve IRFs with laser jitter) but with real photon counts. The 350 complete HPA samples are split into 30 fixed test IDs, 20 fixed calibration IDs, 54 extra calibration IDs that DiffFLIM v2 never saw, and 246 training IDs (the exact list DiffFLIM v2 was trained on). The v3 test set (40 images per level) and both v3 calibration sets (100 images per level each) are paired across photon levels.
 
-DiffFLIM v2 (v1 architecture, 6 hours of training on v3 data) is the most accurate lifetime estimator on the v3 test set at every photon level, ahead of the pretrained FLIMngo network, which in turn is clearly ahead of all classical baselines. Lifetime error (median absolute relative error, all foreground pixels, 40 images per level):
+DiffFLIM v2 (v1 architecture, trained on v3 data) is the most accurate lifetime estimator on the v3 test set at every photon level. In the main comparison every method gets the same information: FLIMngo uses a background mask computed from the counts, DiffFLIM and the MLE get no mask. The strongest deterministic baseline is the FLIMngo architecture retrained on the same 246 training cells for the same 3 hours as the 3-hour DiffFLIM v2 checkpoint. Lifetime error (median absolute relative error, all foreground pixels, 40 images per level):
 
-| Photons per fg pixel | MLE | Binned MLE 5 × 5 | FLIMngo (pretrained) | DiffFLIM v2 |
-|---|---|---|---|---|
-| 10 | 32.8 % | 15.2 % | 12.4 % | 9.8 % |
-| 100 | 14.1 % | 12.6 % | 8.9 % | 6.6 % |
-| 1000 | 7.6 % | 12.3 % | 7.0 % | 4.3 % |
+| Photons per fg pixel | MLE | Binned MLE 5 × 5 | FLIMngo pretrained | FLIMngo retrained v3 | DiffFLIM v2 (3 h) | DiffFLIM v2 (6 h) |
+|---|---|---|---|---|---|---|
+| 10 | 32.8 % | 15.2 % | 19.8 % | 14.0 % | 10.1 % | 9.8 % |
+| 100 | 14.1 % | 12.6 % | 12.7 % | 9.9 % | 6.9 % | 6.6 % |
+| 1000 | 7.6 % | 12.3 % | 10.3 % | 8.1 % | 4.7 % | 4.3 % |
 
-FLIMngo needs 6 ms per 64 × 64 image on the laptop GPU, DiffFLIM v2 about 0.5 s (10 samples of 50 DDIM steps), but only DiffFLIM gives an intensity map and a per-pixel uncertainty.
+With the ground-truth mask the pretrained FLIMngo reaches 12.4, 8.9 and 7.0 %, still behind DiffFLIM v2. The retrained FLIMngo has a positive bias of +4.5 to +6.9 %. FLIMngo needs 6 ms per 64 × 64 image on the laptop GPU. DiffFLIM v2 needs 0.52 s with 10 samples of 50 DDIM steps, but 0.11 s with 10 samples of 10 steps at the same accuracy and, after recalibration, the same coverage; only DiffFLIM gives an intensity map and a per-pixel uncertainty.
 
-The uncalibrated DiffFLIM v2 intervals are too narrow (78 % lifetime and 83 % intensity coverage of the nominal 90 % interval). Calibrated on all 74 calibration cells, the pooled coverage is 89.8 % for the lifetime and 88.1 % for the intensity at 90 %, and 67.8 % and 66.1 % at 68 %. Per-level factors keep every photon level within 1.6 (lifetime) and 2.8 (intensity) percentage points of 90 %; a single global factor deviates by up to 3.0 and 6.0 points.
+The uncalibrated DiffFLIM v2 intervals are too narrow (78 % lifetime and 83 % intensity coverage of the nominal 90 % interval). Calibrated on all 74 calibration cells, the pooled coverage at 90 % is 89.8 % for the lifetime (95 % interval over test cells [88.3, 91.0] %) and 88.1 % for the intensity ([85.7, 90.4] %); at 68 % it is 67.8 % and 66.1 %. At the level of cells all four values are consistent with nominal. Per photon level only the per-level factors are consistent with 90 %; a single global factor under-covers the intensity at 10 to 50 photons and over-covers it at 500 and 1000 photons.
 
 Open problems:
 
-- The intensity intervals still under-cover by about 2 percentage points, because the 30 test cells have larger normalised intensity errors than the calibration cells (90 % score quantile 2.14 on the test set, 1.95 and 2.01 on the two calibration sets). The image-level bootstrap does not include this variation between cells.
+- The mask computed from the counts misses 19 to 26 % of the true foreground pixels on the test set, which is a large part of the FLIMngo error under equal information.
 - The v3 ground truth contains per-pixel lifetime jitter (median 4.4 % of τ on the foreground), close to the DiffFLIM v2 error at 1000 photons; the predicted mean maps are smooth.
 - The mono-exponential baselines follow the intensity-weighted rather than the amplitude-weighted lifetime; no multi-exponential baseline exists. There is no U-Net baseline and no real data yet.
 
-Next steps: test DiffFLIM v2 and FLIMngo on real `.sdt` data, add a U-Net trained on the same v3 data as a deterministic learned baseline, and check whether the intensity calibration gap closes with a calibration score that is normalised per cell.
+Next steps: test DiffFLIM v2 (10 DDIM steps, 10 samples) and both FLIMngo models on real `.sdt` data, check the FLIMngo baselines with a mask of higher recall, and add a U-Net trained on the same v3 data.
 
 ## Decisions
 
@@ -52,7 +52,11 @@ Next steps: test DiffFLIM v2 and FLIMngo on real `.sdt` data, add a U-Net traine
 
 **Extra calibration cells are not training data.** The 54 HPA samples in `data/splits/hpa_calib_extra_v2.txt` were downloaded after DiffFLIM v2 started training and were never seen by it, so they serve as extra calibration cells for v2. They are excluded from `train_ids()` by default (`allow_calib_extra=False`). A future model may only be trained on them if the log entry of that run says so explicitly; the extra calibration set then no longer counts as unseen data for that model and a new calibration set from other cells is needed. The 246 IDs DiffFLIM v2 was trained on are kept as a frozen record in `data/splits/hpa_train_diffflim_v2.txt`, and from now on every checkpoint stores its own training IDs.
 
-**FLIMngo is run with its own preprocessing and the ground-truth mask.** The pretrained FLIMngo network is evaluated as published: per-pixel decays divided by their maximum, background pixels set to zero and no IRF input. The background is masked with the ground-truth foreground, because FLIMngo's own simulated data have exactly zero background and the metrics are computed on the same pixels. This gives FLIMngo information that DiffFLIM does not get; with a mask from the counts alone (Otsu) FLIMngo is 0.5 to 3 percentage points worse.
+**FLIMngo is run with its own preprocessing and the ground-truth mask.** The pretrained FLIMngo network is evaluated as published: per-pixel decays divided by their maximum, background pixels set to zero and no IRF input. The background is masked with the ground-truth foreground, because FLIMngo's own simulated data have exactly zero background and the metrics are computed on the same pixels. This gives FLIMngo information that DiffFLIM does not get; with a mask from the counts alone (Otsu) FLIMngo is 0.5 to 3 percentage points worse. (Replaced for the main comparison by the next decision.)
+
+**All methods get the same information: a mask computed from the counts.** From the entry "FLIMngo retrained on v3, cell-level coverage intervals and DiffFLIM v2 speed trade-off" on, FLIMngo (pretrained and retrained) gets the background mask `foreground_mask(counts.sum(0), "otsu_adaptive")` from `src/evaluation/calibration.py`, in training and at evaluation, because the true mask is not available for real data and DiffFLIM does not get it either. The ground-truth-mask results are kept as an upper bound for FLIMngo. The retrained FLIMngo uses the same 246 training IDs, the same photon range and the same training time as the 3-hour DiffFLIM v2 checkpoint.
+
+**Coverage uncertainty is reported at the level of cells.** Images of the same HPA cell are not independent (same crop source, and the same scene at every photon level in the paired sets). Confidence intervals for coverage therefore resample test cells (`hpa_id`), and the joint interval also resamples the calibration cells and refits the factors. Image-level bootstrap intervals in earlier entries are about half as wide and too optimistic.
 
 ## Log
 
@@ -607,3 +611,112 @@ Two edits of `src/data/simulate_v3.py` written through a shell here-document los
 Correction to the entry "DiffFLIM v2: 6-hour training on simulator v3, evaluation and calibration": in the coverage table of that entry, 12 bootstrap interval bounds differ by 0.1 to 0.5 percentage points from the saved file `results/tables/coverage_calibrated_v2.csv`, because they were transcribed from rounded console output instead of the file (the coverage values themselves are correct). The intervals from the file are: 10 photons τ uncalibrated [70.0, 78.6] %, global [83.2, 89.6] %; 100 photons τ per level [89.2, 91.3] %; 1000 photons τ uncalibrated [76.8, 84.4] %, global [89.6, 93.8] %, per level [86.7, 92.0] %; all levels τ uncalibrated [76.8, 79.3] %; 10 photons intensity per level [85.2, 90.6] %; 1000 photons intensity per level [83.4, 90.3] %; all levels intensity uncalibrated [81.0, 84.0] %, global [86.5, 88.9] %, per level [86.5, 88.8] %. The tables in this entry were generated from the files.
 
 Next: run DiffFLIM v2 and FLIMngo on real `.sdt` data, train a deterministic U-Net on the same v3 data as a further learned baseline, and test a calibration score normalised per cell to close the intensity gap.
+
+### 2026-11-22 – FLIMngo retrained on v3, cell-level coverage intervals and DiffFLIM v2 speed trade-off
+
+Goal: (A) A fair deterministic baseline: the FLIMngo architecture trained from scratch on the same v3 training data and for the same time as the 3-hour DiffFLIM v2 checkpoint, with all learned methods evaluated with a background mask computed from the counts instead of the ground-truth mask. (B) Confidence intervals for the calibrated coverage of DiffFLIM v2 that resample test cells instead of images, to decide whether the intensity coverage of 88 % is consistent with the nominal 90 %. (C) The effect of fewer DDIM steps and fewer samples on the error, the calibrated coverage and the time per image of DiffFLIM v2.
+
+Changes:
+
+- `src/models/flimngo_arch.py` (new): builds the FLIMngo network with random weights (class imported unchanged from `external/FLIMngo/backbone/flimngo_net.py`, citation in the docstring) and applies FLIMngo's preprocessing on the GPU (background zeroed, each pixel divided by its maximum over time).
+- `scripts/train_flimngo.py` (new): training on streamed v3 samples of the 246 DiffFLIM v2 training IDs; validation every 10 minutes; best and last checkpoint.
+- `src/evaluation/calibration.py`: new function `foreground_mask(counts_sum, method)` with the two Otsu variants of the previous entry; `estimate_photon_level()` now uses it (results unchanged).
+- `scripts/eval_compare_v2.py` (new): both FLIMngo models with the computed mask on the full v3 test set, merged with the MLE, binned MLE and DiffFLIM v2 results; writes `results/tables/compare_v2.csv` and `results/figures/error_vs_photons_compare_v2.png`.
+- `scripts/coverage_cell_bootstrap.py` (new): cell-level bootstrap of the calibrated coverage; writes `results/tables/coverage_cellboot_v2.csv`.
+- `scripts/speed_tradeoff_v2.py` (new): DiffFLIM v2 with 50, 20 and 10 DDIM steps and 10 and 5 samples, each recalibrated; writes `results/tables/speed_tradeoff_v2.csv` and `results/figures/speed_tradeoff_v2.png`.
+- New checkpoints `checkpoints/flimngo_v3.pt` (best validation) and `checkpoints/flimngo_v3_last.pt`; logs `logs/flimngo_v3.csv`, `logs/flimngo_v3_val.csv`; figure `results/figures/training_flimngo_v3.png`.
+- New cached calibration predictions `data/processed/preds_v2_s{steps}_n{samples}_{calib, calib_sim_v3_calib_extra}.npz` for the five reduced settings.
+
+Settings:
+
+- FLIMngo retrained: 9.44 M parameters, PyTorch default initialisation (seed 0), image size 64, bin width 0.0977 ns, float32.
+- Loss as in FLIMngo's `train.py`: mean squared error of the lifetime in ns over all pixels, target 0 outside the true foreground. AdamW, learning rate 0.01 (constant), weight decay 1e-8, batch 16, 180 minutes.
+- Data: `simulate_v3.training_samples()` with the 246 IDs in `data/splits/hpa_train_diffflim_v2.txt`, photon level log-uniform in [10, 1000], 64 × 64 crops, 16 data-loader workers.
+- Mask in training and evaluation: `foreground_mask(counts.sum(0), "otsu_adaptive")`.
+- Validation: 64 fixed images from training cells (seed 777), every 10 minutes; the checkpoint with the lowest validation MSE is kept.
+- Cell bootstrap: unit `hpa_id`; 5000 replicates over the 30 test cells with fixed factors, and 500 joint replicates over the 74 calibration cells and the 30 test cells with refitted factors.
+- Speed: first 10 test images per level (60 images, 10 cells, the same images and noise seeds for every setting), each setting recalibrated on all 1200 calibration images (74 cells) with the global and the per-level factor; time per image as the median over the 60 images, batch of samples on the GPU, including the copy to the CPU.
+
+Results (A, fair baseline): FLIMngo's `train.py` uses MSE in ns over the full image, with zero input and zero target in the background, AdamW with lr 0.01 and weight decay 1e-8, batch 10 and early stopping on a 20 % validation split. The author kept this recipe with three deviations: batch 16 (the same number of images per step as DiffFLIM v2), a fixed time budget instead of epochs because the data are streamed, and the computed mask instead of the exact background of their simulation. True foreground pixels outside the computed mask keep their true lifetime as target, so the network can fill them in from the neighbourhood. No intensity head was added: the per-pixel max normalisation removes the photon count from the input, so an intensity output would need a change of FLIMngo's preprocessing.
+
+A 2-minute smoke test ran at 8.8 iterations per second with 12 to 21 % of the time spent waiting for data, and the validation error fell from 22.6 to 17.4 % (peak GPU memory 1.61 GB). The 3-hour run made 88 837 steps (8.2 per second on average, 21 % data wait), about 1.42 M images. The validation error fell to 7.7 % after 50 minutes and then stayed between 7.5 and 8.5 %; the lowest validation MSE, 0.921 ns², was reached after 130 minutes (step 67 126), and this checkpoint was used. The training loss decreased slowly until the end (about 1.0 ns² at 180 minutes).
+
+![Training and validation loss of the FLIMngo architecture trained on v3](../results/figures/training_flimngo_v3.png)
+
+Lifetime error on the v3 test set, all foreground pixels (median absolute relative error, 40 images per level; FLIMngo with the computed mask, DiffFLIM, MLE and binned MLE without any mask):
+
+| Photons | MLE | Binned MLE 5 × 5 | FLIMngo pretrained | FLIMngo retrained v3 | DiffFLIM v2 (3 h) | DiffFLIM v2 (6 h) |
+|---|---|---|---|---|---|---|
+| 10 | 32.8 % | 15.2 % | 19.8 % | 14.0 % | 10.1 % | 9.8 % |
+| 20 | 24.6 % | 13.8 % | 19.2 % | 12.4 % | 8.9 % | 8.6 % |
+| 50 | 17.7 % | 13.0 % | 14.1 % | 11.0 % | 8.0 % | 7.6 % |
+| 100 | 14.1 % | 12.6 % | 12.7 % | 9.9 % | 6.9 % | 6.6 % |
+| 500 | 9.0 % | 12.4 % | 10.8 % | 8.5 % | 5.1 % | 4.7 % |
+| 1000 | 7.6 % | 12.3 % | 10.3 % | 8.1 % | 4.7 % | 4.3 % |
+
+On bright foreground pixels the values were 15.6, 17.0, 13.1, 11.6, 10.3 and 9.8 % for the pretrained FLIMngo, 12.6, 11.8, 10.7, 9.7, 8.8 and 8.5 % for the retrained FLIMngo and 8.7, 7.6, 6.9, 6.0, 4.6 and 4.4 % for DiffFLIM v2 (6 h). The bias of the retrained FLIMngo on all foreground pixels was +5.5, +6.9, +6.0, +5.2, +4.7 and +4.5 % (bright pixels +6.6 to +9.6 %), that of the pretrained FLIMngo with the computed mask −5.4 to −2.6 %, and that of DiffFLIM v2 (6 h) +1.0 to +3.1 %.
+
+![Lifetime and intensity error of all methods on the v3 test set](../results/figures/error_vs_photons_compare_v2.png)
+
+At equal training time, DiffFLIM v2 (3 h) had a 1.38 to 1.42 times lower lifetime error than the retrained FLIMngo from 10 to 100 photons and a 1.68 to 1.72 times lower error at 500 and 1000 photons. Training on v3 data reduced the error of the FLIMngo architecture by 21 to 36 % compared with the pretrained weights under the same mask. The retrained FLIMngo was better than the binned MLE at every level and better than the per-pixel MLE up to 500 photons, but worse than the MLE at 1000 photons (8.1 versus 7.6 %). Retrained FLIMngo needed 6.1 ms per 64 × 64 image (batch 1, network only), the same as the pretrained one.
+
+The computed mask is a large part of the FLIMngo error. On the test set it kept 74 to 81 % of the true foreground pixels (recall 0.738 at 10 photons, 0.81 from 50 photons on) with a precision of 0.97 to 1.00; it was tuned in the previous entry for the photon estimate, where precision matters more than recall. The older `otsu_log` mask had a recall of 0.83 and a precision of 0.88 to 0.92 on the same images. Inside the computed mask, the errors were 12.5, 12.1, 10.4, 9.5, 8.1 and 7.7 % (pretrained) and 12.0, 11.2, 10.1, 9.1, 7.7 and 7.3 % (retrained). Even this favourable subset gives both FLIMngo models a higher error than DiffFLIM v2 on all foreground pixels. The pretrained network with the ground-truth mask (previous entry: 12.4, 10.7, 9.3, 8.9, 7.5 and 7.0 %) was about as accurate as the retrained network inside the computed mask (on different pixel sets), so three hours of training on v3 did not produce a better FLIMngo than the published weights; the gain of the retrained model under the computed mask comes mainly from filling in the masked-out foreground pixels.
+
+Results (B, cell-level coverage intervals): The calibration was the main calibration of the previous entry (74 calibration cells, photon estimate `otsu_adaptive`, per-level factors as a quadratic curve in log photons). The test set contains 30 cells; each scene appears at all six photon levels, so each cell contributes 8 of the 240 images on average. Coverage on the test set over all photon levels:
+
+| Quantity | Nominal | Calibration | Coverage | Test-cell 95 % CI | Joint 95 % CI |
+|---|---|---|---|---|---|
+| τ | 90 % | none | 78.1 % | [75.8, 80.2] % | – |
+| τ | 90 % | global | 89.8 % | [88.3, 91.0] % | [88.1, 91.2] % |
+| τ | 90 % | per level | 89.7 % | [88.3, 91.1] % | [88.1, 91.2] % |
+| τ | 68 % | none | 55.8 % | [53.1, 58.3] % | – |
+| τ | 68 % | global | 67.8 % | [65.2, 70.3] % | [64.8, 70.8] % |
+| τ | 68 % | per level | 67.7 % | [65.1, 70.2] % | [64.7, 70.8] % |
+| Intensity | 90 % | none | 82.6 % | [79.6, 85.6] % | – |
+| Intensity | 90 % | global | 88.1 % | [85.7, 90.4] % | [85.2, 90.7] % |
+| Intensity | 90 % | per level | 88.0 % | [85.5, 90.5] % | [85.0, 90.8] % |
+| Intensity | 68 % | none | 63.5 % | [59.4, 67.8] % | – |
+| Intensity | 68 % | global | 66.1 % | [62.0, 70.3] % | [61.0, 70.4] % |
+| Intensity | 68 % | per level | 66.0 % | [61.8, 70.3] % | [60.8, 70.4] % |
+
+The test-cell intervals were about twice as wide as the image-level intervals of the previous entry (intensity, 90 %, global factor: [85.7, 90.4] % instead of [87.0, 89.3] %). Refitting the factors on resampled calibration cells (joint interval) widened them only by a further 0.4 to 1.1 percentage points, so the variation between test cells dominates. The pooled intensity coverage of 88.1 % at 90 % and 66.1 % at 68 % is therefore consistent with the nominal values at the cell level: both nominal values lie inside both intervals. The earlier conclusion that the intensity intervals under-cover was based on image-level intervals that treated images of the same cell as independent.
+
+Coverage per photon level at 90 % (test-cell CI, joint CI):
+
+| Photons | τ, global | τ, per level | Intensity, global | Intensity, per level |
+|---|---|---|---|---|
+| 10 | 87.0 [83.1, 89.6] [82.8, 89.7] | 88.4 [84.7, 90.8] [84.3, 90.8] | 84.5 [81.1, 87.5] [80.7, 87.7] | 88.5 [85.6, 91.1] [85.5, 91.3] |
+| 20 | 88.9 [87.2, 90.5] [87.0, 90.5] | 90.0 [88.3, 91.4] [88.1, 91.4] | 84.0 [80.7, 86.9] [80.2, 87.3] | 87.4 [84.6, 89.9] [84.1, 90.1] |
+| 50 | 89.6 [88.4, 90.7] [88.1, 90.9] | 90.2 [89.0, 91.2] [88.7, 91.3] | 85.4 [82.5, 88.1] [82.0, 88.5] | 87.4 [84.8, 89.9] [84.5, 90.2] |
+| 100 | 90.0 [88.9, 90.9] [88.5, 91.2] | 90.1 [89.1, 91.0] [88.7, 91.3] | 87.2 [84.7, 89.6] [84.4, 90.0] | 87.8 [85.5, 90.2] [85.0, 90.4] |
+| 500 | 91.2 [89.9, 92.7] [89.6, 92.7] | 90.0 [88.6, 91.6] [88.1, 91.6] | 93.6 [91.7, 95.3] [91.5, 95.3] | 89.7 [87.2, 92.0] [86.8, 92.3] |
+| 1000 | 91.8 [89.8, 93.7] [89.7, 93.8] | 89.8 [87.5, 92.1] [87.1, 92.3] | 94.0 [91.9, 95.9] [91.7, 95.9] | 87.2 [83.6, 90.7] [83.0, 90.9] |
+
+Per level, the global factor is not consistent with 90 %: for the intensity, the intervals exclude 90 % at 10, 20 and 50 photons (under-coverage) and at 500 and 1000 photons (over-coverage), for the lifetime at 10 photons. With the per-level factors, all joint intervals contain 90 %; the test-cell intervals at 20 and 50 photons for the intensity end at 89.9 %, just below. The per-level factors are therefore the calibration to report per photon level, while the pooled numbers of the two variants are the same.
+
+Results (C, speed trade-off): DiffFLIM v2 (6 h) on the 60 speed-test images, all levels pooled (lifetime and intensity error: median absolute relative error on the true foreground; coverage of the 90 % interval before calibration and after calibration with the global and the per-level factor):
+
+| DDIM steps | Samples | Time per image | τ error | Intensity error | τ coverage (none / global / per level) | Intensity coverage (none / global / per level) | Global factor τ / intensity |
+|---|---|---|---|---|---|---|---|
+| 50 | 10 | 522 ms | 7.26 % | 2.72 % | 81.0 / 91.8 / 91.8 % | 85.7 / 90.8 / 90.7 % | 2.31 / 1.98 |
+| 50 | 5 | 391 ms | 7.37 % | 2.87 % | 76.6 / 92.3 / 92.3 % | 77.6 / 88.9 / 88.9 % | 2.82 / 2.44 |
+| 20 | 10 | 233 ms | 7.22 % | 2.70 % | 73.9 / 92.1 / 92.0 % | 81.8 / 91.1 / 91.0 % | 2.78 / 2.28 |
+| 20 | 5 | 182 ms | 7.26 % | 2.83 % | 70.0 / 92.9 / 92.9 % | 73.4 / 89.2 / 89.1 % | 3.37 / 2.79 |
+| 10 | 10 | 111 ms | 7.21 % | 2.70 % | 65.5 / 92.0 / 91.9 % | 78.0 / 91.3 / 91.1 % | 3.35 / 2.59 |
+| 10 | 5 | 94 ms | 7.22 % | 2.82 % | 62.2 / 93.0 / 93.0 % | 69.6 / 89.4 / 89.2 % | 4.04 / 3.16 |
+
+![Error and calibrated coverage of DiffFLIM v2 against the time per image](../results/figures/speed_tradeoff_v2.png)
+
+Reducing the DDIM steps from 50 to 10 made DiffFLIM v2 4.7 times faster (522 to 111 ms per image with 10 samples) without a loss in accuracy: the lifetime error changed from 7.26 to 7.21 % and the intensity error from 2.72 to 2.70 %; the same held at every photon level (at 10 photons 11.56 versus 11.34 % for the lifetime). Fewer steps made the samples less diverse: the uncalibrated lifetime coverage fell from 81.0 to 65.5 % and the global factor rose from 2.31 to 3.35. After recalibration the coverage was again close to nominal. Halving the samples saved less time than reducing the steps (10 steps: 111 to 94 ms) because the samples run as one batch on the GPU, raised the intensity error by 4 to 6 % relative (for example 2.70 to 2.82 % at 10 steps) and lowered the calibrated intensity coverage by about 2 percentage points (89 instead of 91 %), as the standard deviation from five samples is noisy.
+
+These 60 images come from only 10 cells and are easier for the lifetime calibration than the full test set (91.8 % instead of 89.8 % at 50 steps and 10 samples with the same factor), so only the differences between the settings are meaningful, not the absolute coverage. The interval widths were not compared; with fewer steps the standard deviation shrinks and the factor grows, so the calibrated intervals are not necessarily narrower or wider.
+
+Compared to before: The pretrained FLIMngo was evaluated with the ground-truth mask in the previous entry (12.4 to 7.0 % lifetime error); with the computed mask, as DiffFLIM, its error was 19.8 to 10.3 %. The retrained FLIMngo (14.0 to 8.1 %) is the strongest deterministic baseline under equal information, and DiffFLIM v2 remains more accurate by a factor of 1.4 to 1.9 (6 h). The coverage intervals now resample cells; with them the intensity coverage is consistent with 90 % and 68 %. DiffFLIM v2 with 10 DDIM steps and 10 samples is as accurate as with 50 steps and needs 0.11 instead of 0.52 s per image.
+
+Problems and fixes: The retrained FLIMngo has a positive lifetime bias of +4.5 to +6.9 % on all foreground pixels. The loss is an MSE in ns, so the long lifetimes dominate it; the learning rate was constant, and the validation MSE varied by up to 30 % between checks (1.23 ns² at 80 minutes after 0.98 ns² at 60 minutes). The cause of the bias was not investigated further. The validation set (64 images from training cells) was too small to rank the checkpoints after the first hour.
+
+The plot in `scripts/speed_tradeoff_v2.py` failed after all timings were finished, because the line style for intensity was made by replacing "-" with ":" in "s--", which gave the invalid style "s::". The table had already been written. The plot was moved into a function that reads the saved table, called with `--plot-only`, so no timing was repeated.
+
+The tests (`tests/test_calibration.py`, `tests/test_simulate_v3.py`, `tests/test_flimngo.py`, 14 tests) all passed after the change of `calibration.py`. `pytest` is not installed; the test files were run directly.
+
+Next: run DiffFLIM v2 (10 DDIM steps, 10 samples) and both FLIMngo models on real `.sdt` data, use a mask with higher recall for the deterministic baselines as a sensitivity check, and add a U-Net trained on the same v3 data.

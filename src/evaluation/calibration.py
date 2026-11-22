@@ -62,19 +62,25 @@ def estimate_photon_level(counts_sum, smooth=1.5, method="otsu_log"):
     The level is the mean raw count inside the foreground (includes the small background).
     """
     s = np.asarray(counts_sum, dtype=np.float64)
-    if method == "otsu_log":
-        smoothed = gaussian_filter(s, smooth)
-        fg = np.log1p(smoothed) > _otsu_threshold(np.log1p(smoothed).ravel())
-    elif method == "otsu_adaptive":
-        p99 = np.percentile(s, 99)
-        sigma = 1.0 if p99 < 30 else (0.5 if p99 < 300 else 0.0)
-        smoothed = gaussian_filter(s, sigma) if sigma else s
-        fg = smoothed > _otsu_threshold(smoothed.ravel())
-    else:
-        raise ValueError(method)
+    fg = foreground_mask(s, method, smooth)
     if not fg.any():
         return float(np.mean(s))
     return float(np.mean(s[fg]))
+
+
+def foreground_mask(counts_sum, method="otsu_adaptive", smooth=1.5):
+    """Foreground mask computed from the summed counts (H, W) alone (see estimate_photon_level).
+    Also used as the computed background mask for FLIMngo (pretrained and retrained)."""
+    s = np.asarray(counts_sum, dtype=np.float64)
+    if method == "otsu_log":
+        smoothed = gaussian_filter(s, smooth)
+        return np.log1p(smoothed) > _otsu_threshold(np.log1p(smoothed).ravel())
+    if method == "otsu_adaptive":
+        p99 = np.percentile(s, 99)
+        sigma = 1.0 if p99 < 30 else (0.5 if p99 < 300 else 0.0)
+        smoothed = gaussian_filter(s, sigma) if sigma else s
+        return smoothed > _otsu_threshold(smoothed.ravel())
+    raise ValueError(method)
 
 
 # ----------------------------------------------------------------------------------------
