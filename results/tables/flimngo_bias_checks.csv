@@ -1,0 +1,41 @@
+check,training,test
+train_vs_eval_pipeline_max_abs_diff_ns,0,
+tau_p10,2.718,2.93
+tau_p25,4.035,4.217
+tau_p50,5.66,5.663
+tau_p75,7.282,6.966
+tau_p90,8.648,8.02
+ncomp_1,0.1408,0.1534
+ncomp_2,0.2106,0.2091
+ncomp_3,0.4438,0.4805
+ncomp_4,0.2048,0.1569
+irf_max_share,0.1183,0.175
+irf_min_share,0.06833,0.025
+n_irfs,12,11
+irf_shift_mean,2.152,2.075
+irf_shift_sd,11.46,12.57
+bg_photons_per_signal_photon,0.02,0.02
+train_cells_best_bias_pct_10,0.8106,
+train_cells_best_bias_pct_20,3.106,
+train_cells_best_bias_pct_50,0.7629,
+train_cells_best_bias_pct_100,-0.4234,
+train_cells_best_bias_pct_500,2.392,
+train_cells_best_bias_pct_1000,2.957,
+train_cells_best_bias_pct_all,1.68,
+validation_best_bias_pct,1.199,
+train_cells_last_bias_pct_10,-4.575,
+train_cells_last_bias_pct_20,-3.379,
+train_cells_last_bias_pct_50,-3.934,
+train_cells_last_bias_pct_100,-4.288,
+train_cells_last_bias_pct_500,-2.043,
+train_cells_last_bias_pct_1000,-0.9556,
+train_cells_last_bias_pct_all,-2.965,
+validation_last_bias_pct,-3.59,
+"scene_ci_lo_retrained best, recall mask",,3.46
+"scene_ci_hi_retrained best, recall mask",,8.999
+"scene_ci_lo_retrained last, recall mask",,-0.9861
+"scene_ci_hi_retrained last, recall mask",,3.413
+"scene_ci_lo_pretrained, recall mask",,-3.225
+"scene_ci_hi_pretrained, recall mask",,0.8318
+"scene_ci_lo_DiffFLIM v2 6 h, 10 steps",,0.3857
+"scene_ci_hi_DiffFLIM v2 6 h, 10 steps",,2.742

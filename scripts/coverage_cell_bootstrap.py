@@ -14,11 +14,14 @@ Calibration as in coverage_calibrated_v2_extra: cached predictions of DiffFLIM v
 (data/processed/preds_v2_*.npz), photon estimate "otsu_adaptive", global factor and per-level
 factors as a quadratic in log(estimated photons).
 
-Writes results/tables/coverage_cellboot_v2.csv
+Writes results/tables/coverage_cellboot_v2.csv (50 DDIM steps, 10 samples) or
+       results/tables/coverage_cellboot_v2_s{steps}_n{samples}.csv (other settings; default 10 steps).
 
 Usage:
-    python scripts/coverage_cell_bootstrap.py
+    python scripts/coverage_cell_bootstrap.py               # 10 DDIM steps (default since 2026-11-22)
+    python scripts/coverage_cell_bootstrap.py --steps 50    # previous setting
 """
+import argparse
 import csv
 import sys
 from pathlib import Path
@@ -31,7 +34,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import calibrate_diffflim as cd  # noqa: E402
 from src.data.simulate import load_dataset  # noqa: E402
 from src.evaluation import calibration as cal  # noqa: E402
-from src.paths import PROCESSED, RAW_OWN, TABLES  # noqa: E402
+from src.paths import RAW_OWN, TABLES  # noqa: E402
 
 ALPHAS = (0.10, 0.32)
 LEVELS = (10, 20, 50, 100, 500, 1000)
@@ -100,12 +103,17 @@ def hits_for(test_scores, factors):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--steps", type=int, default=10, help="DDIM steps of the cached predictions (10 default, 50 before)")
+    ap.add_argument("--n-samples", type=int, default=10)
+    args = ap.parse_args()
     rng = np.random.default_rng(2026)
     cal_dirs = [RAW_OWN / "sim_v3_calib", RAW_OWN / "sim_v3_calib_extra"]
-    calib = cd.concat_records([load_rec(PROCESSED / f"preds_v2_{cd.calib_cache_key(d)}.npz", files_of(d, "calib"))
+    calib = cd.concat_records([load_rec(cd.preds_cache("v2", cd.calib_cache_key(d), args.steps, args.n_samples),
+                                        files_of(d, "calib"))
                                for d in cal_dirs])
     test_files = files_of(RAW_OWN / "sim_v3_test", "test")
-    test = load_rec(PROCESSED / "preds_v2_test.npz", test_files)
+    test = load_rec(cd.preds_cache("v2", "test", args.steps, args.n_samples), test_files)
     cal_cells, cal_cell_idx = np.unique(calib["hpa_id"], return_inverse=True)
     test_cells, test_cell_idx = np.unique(test["hpa_id"], return_inverse=True)
     print(f"Calibration: {len(calib['photons'])} images from {len(cal_cells)} cells; "
@@ -169,7 +177,8 @@ def main():
                         print(f"{q:3s} {1 - a:.2f} {v:9s} all: {cov:.3f}  test-cell [{lo:.3f}, {hi:.3f}]{j}", flush=True)
 
     TABLES.mkdir(parents=True, exist_ok=True)
-    out = TABLES / "coverage_cellboot_v2.csv"
+    suffix = "" if (args.steps, args.n_samples) == (50, 10) else f"_s{args.steps}_n{args.n_samples}"
+    out = TABLES / f"coverage_cellboot_v2{suffix}.csv"
     with open(out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()

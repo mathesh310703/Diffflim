@@ -4,8 +4,10 @@ Steps
   1. Calibration set: an existing folder with calib_p*.npz (simulator v3: data/raw/own/sim_v3_calib,
      made by `python -m src.data.simulate_v3`), or -- for the old v2 simulator -- generated here
      in data/raw/own/sim_calib/ if missing.
-  2. Predictions (N samples -> mean, std) on calibration and test images, cached in
-     data/processed/preds_{tag}_{calib,test}.npz (delete them or use --recompute to redo).
+  2. Predictions (N samples of --steps DDIM steps -> mean, std) on calibration and test images,
+     cached in data/processed/preds_{tag}_{calib,test}.npz for 50 steps / 10 samples and in
+     preds_{tag}_s{steps}_n{samples}_{calib,test}.npz otherwise (delete them or use --recompute).
+     Default since 2026-11-22: 10 DDIM steps, 10 samples (50 steps before; use --steps 50).
   3. Factors (src/evaluation/calibration.py): global, and per photon level as a curve in
      log(photons) (--smooth: quadratic fit; otherwise linear interpolation).
   4. Coverage + relative interval width before/after calibration on the test set, per level and
@@ -87,7 +89,14 @@ def concat_records(recs):
     return {k: np.concatenate([r[k] for r in recs]) for k in recs[0]}
 
 
-def predict_split(model, files, n_images, n_samples, seed0):
+def preds_cache(ptag, key, steps, n_samples):
+    """Prediction cache. 50 steps / 10 samples keep the old names (preds_{ptag}_{key}.npz)."""
+    if (steps, n_samples) == (50, 10):
+        return PROCESSED / f"preds_{ptag}_{key}.npz"
+    return PROCESSED / f"preds_{ptag}_s{steps}_n{n_samples}_{key}.npz"
+
+
+def predict_split(model, files, n_images, n_samples, seed0, steps=10):
     """Run the model on every image -> prediction record (see calibration.py)."""
     keys = ["tau_mean", "tau_std", "int_mean", "int_std", "tau_gt", "int_gt", "mask", "photons", "photons_est"]
     rec = {k: [] for k in keys}
@@ -96,7 +105,7 @@ def predict_split(model, files, n_images, n_samples, seed0):
         n = min(n_images or len(d["counts"]), len(d["counts"]))
         t0 = time.perf_counter()
         for i in range(n):
-            s = model.sample(d["counts"][i], n_samples=n_samples, seed=seed0 + i)
+            s = model.sample(d["counts"][i], n_samples=n_samples, steps=steps, seed=seed0 + i)
             rec["tau_mean"].append(s[:, 0].mean(0)); rec["tau_std"].append(s[:, 0].std(0, ddof=1))
             rec["int_mean"].append(s[:, 1].mean(0)); rec["int_std"].append(s[:, 1].std(0, ddof=1))
             rec["tau_gt"].append(d["tau_gt"][i]); rec["int_gt"].append(d["intensity_gt"][i])
@@ -106,11 +115,11 @@ def predict_split(model, files, n_images, n_samples, seed0):
     return {k: np.stack(v) if np.ndim(v[0]) else np.array(v) for k, v in rec.items()}
 
 
-def load_or_predict(path, model_fn, files, n_images, n_samples, seed0, recompute):
+def load_or_predict(path, model_fn, files, n_images, n_samples, seed0, recompute, steps=10):
     if path.exists() and not recompute:
         with np.load(path) as f:
             return {k: f[k] for k in f.files}
-    rec = predict_split(model_fn(), files, n_images, n_samples, seed0)
+    rec = predict_split(model_fn(), files, n_images, n_samples, seed0, steps)
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(path, **rec)
     return rec
@@ -155,6 +164,7 @@ def main():
     ap.add_argument("--n-test", type=int, default=0, help="test images per level (0 = all)")
     ap.add_argument("--n-calib", type=int, default=0, help="calibration images per level (0 = all)")
     ap.add_argument("--n-samples", type=int, default=10)
+    ap.add_argument("--steps", type=int, default=10, help="DDIM steps (default 10 since 2026-11-22; 50 before)")
     ap.add_argument("--smooth", action="store_true", help="per-level factors as a quadratic in log(photons)")
     ap.add_argument("--recompute", action="store_true")
     args = ap.parse_args()
@@ -180,16 +190,17 @@ def main():
     for k, (c, files) in enumerate(calib_files.items()):
         print(f"Predicting calibration set {c}")
         key = calib_cache_key(c)
-        rec = load_or_predict(PROCESSED / f"preds_{ptag}_{key}.npz", model_fn, files,
-                              args.n_calib, args.n_samples, 5000 if key == "calib" else 7000, args.recompute)
+        rec = load_or_predict(preds_cache(ptag, key, args.steps, args.n_samples), model_fn, files,
+                              args.n_calib, args.n_samples, 5000 if key == "calib" else 7000, args.recompute,
+                              args.steps)
         if args.photon_estimator != "otsu_log":
             rec = recompute_photons_est(rec, files, args.n_calib, args.photon_estimator)
         print(f"  {len(rec['photons'])} images")
         recs.append(rec)
     calib = concat_records(recs)
     print("Predicting test set")
-    test = load_or_predict(PROCESSED / f"preds_{ptag}_test.npz", model_fn, test_files,
-                           args.n_test, args.n_samples, 1000, args.recompute)
+    test = load_or_predict(preds_cache(ptag, "test", args.steps, args.n_samples), model_fn, test_files,
+                           args.n_test, args.n_samples, 1000, args.recompute, args.steps)
     if args.photon_estimator != "otsu_log":
         test = recompute_photons_est(test, test_files, args.n_test, args.photon_estimator)
 

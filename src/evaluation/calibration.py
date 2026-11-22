@@ -70,8 +70,18 @@ def estimate_photon_level(counts_sum, smooth=1.5, method="otsu_log"):
 
 def foreground_mask(counts_sum, method="otsu_adaptive", smooth=1.5):
     """Foreground mask computed from the summed counts (H, W) alone (see estimate_photon_level).
-    Also used as the computed background mask for FLIMngo (pretrained and retrained)."""
+
+    method="otsu_adaptive": precision-oriented, used for the photon estimate (and for FLIMngo's
+        input until the recall mask below was added; the retrained FLIMngo was trained with it).
+    method="flimngo_recall" (2026-11-22): recall-oriented mask for FLIMngo's input: raw summed counts
+        above 0.2 x their 99th percentile, no smoothing. Chosen on the v3 calibration sets
+        (scripts/select_flimngo_mask.py): recall >= 0.98 at every photon level with almost no
+        background. It relies on the v3 intensity mapping (dimmest foreground pixel >= ~20 % of the
+        crop maximum, background 2 % of the level) and may be less clean on real data.
+    """
     s = np.asarray(counts_sum, dtype=np.float64)
+    if method == "flimngo_recall":
+        return s > 0.2 * np.percentile(s, 99)
     if method == "otsu_log":
         smoothed = gaussian_filter(s, smooth)
         return np.log1p(smoothed) > _otsu_threshold(np.log1p(smoothed).ravel())

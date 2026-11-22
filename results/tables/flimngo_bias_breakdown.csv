@@ -1,0 +1,271 @@
+method,factor,group,n_pixels,bias_pct,mare_pct,bias_ns,mean_rel_pct
+"retrained best, otsu_adaptive mask",all,all,648114,5.369,10.39,0.2837,10.94
+"retrained best, otsu_adaptive mask",photons,10,108019,5.511,13.96,0.3061,10.82
+"retrained best, otsu_adaptive mask",photons,20,108019,6.914,12.38,0.3781,13.53
+"retrained best, otsu_adaptive mask",photons,50,108019,6.043,11.04,0.3194,11.63
+"retrained best, otsu_adaptive mask",photons,100,108019,5.179,9.864,0.2699,10.18
+"retrained best, otsu_adaptive mask",photons,500,108019,4.669,8.515,0.2437,9.765
+"retrained best, otsu_adaptive mask",photons,1000,108019,4.506,8.078,0.2331,9.723
+"retrained best, otsu_adaptive mask",tau_gt_ns,0.1-1,3432,118.6,118.6,0.7692,255.9
+"retrained best, otsu_adaptive mask",tau_gt_ns,1-2,14256,36.18,44.47,0.5732,60.72
+"retrained best, otsu_adaptive mask",tau_gt_ns,2-3,51210,18.68,20.55,0.4584,28.75
+"retrained best, otsu_adaptive mask",tau_gt_ns,3-4,76386,19.06,20.57,0.6721,24.74
+"retrained best, otsu_adaptive mask",tau_gt_ns,4-6,223584,11.17,13.65,0.566,12.03
+"retrained best, otsu_adaptive mask",tau_gt_ns,6-12,279246,-0.7486,6.186,-0.05492,-2.516
+"retrained best, otsu_adaptive mask",n_components,1,99450,-2.363,11.69,-0.1266,4.482
+"retrained best, otsu_adaptive mask",n_components,2,135552,4.526,10.52,0.2272,9.989
+"retrained best, otsu_adaptive mask",n_components,3,311400,6.615,9.804,0.3488,12.1
+"retrained best, otsu_adaptive mask",n_components,4,101712,9.121,10.74,0.4976,14.97
+"retrained best, otsu_adaptive mask",irf,IRF_APD,132660,18.37,21.22,0.8924,30.77
+"retrained best, otsu_adaptive mask",irf,IRF_DL4FLI,58908,3.288,7.889,0.1768,3.643
+"retrained best, otsu_adaptive mask",irf,IRF_DLT,56172,-0.8377,10.58,-0.04035,5.246
+"retrained best, otsu_adaptive mask",irf,IRF_FPFLI,60798,4.573,9.87,0.2544,3.242
+"retrained best, otsu_adaptive mask",irf,IRF_PMT,67440,4.467,7.913,0.3182,8.249
+"retrained best, otsu_adaptive mask",irf,IRF_flimfit,20358,-0.8063,3.688,-0.06581,-1.427
+"retrained best, otsu_adaptive mask",irf,IRF_simulated,59082,-0.2145,5.376,-0.01494,-1.376
+"retrained best, otsu_adaptive mask",irf,IRF_simulated_broad,24564,-1.406,6.242,-0.09319,-1.168
+"retrained best, otsu_adaptive mask",irf,IRF_simulated_broad_s,85560,12.93,15.4,0.5822,15.61
+"retrained best, otsu_adaptive mask",irf,IRF_simulated_narrow,58044,5.043,9.611,0.1663,5.311
+"retrained best, otsu_adaptive mask",irf,IRF_simulated_s,24528,4.266,13.63,0.2751,9.846
+"retrained best, otsu_adaptive mask",inside_otsu_adaptive_mask,False,137132,5.477,16.25,0.3223,12.54
+"retrained best, otsu_adaptive mask",inside_otsu_adaptive_mask,True,510982,5.352,9.302,0.2777,10.51
+"retrained best, recall mask",all,all,648114,5.808,9.764,0.3074,10.87
+"retrained best, recall mask",photons,10,108019,8.496,14.19,0.4616,15.52
+"retrained best, recall mask",photons,20,108019,6.727,11.53,0.3666,12.89
+"retrained best, recall mask",photons,50,108019,5.704,10.23,0.3035,10.48
+"retrained best, recall mask",photons,100,108019,5.254,9.264,0.2744,9.244
+"retrained best, recall mask",photons,500,108019,4.93,7.809,0.257,8.472
+"retrained best, recall mask",photons,1000,108019,5.015,7.483,0.2616,8.61
+"retrained best, recall mask",tau_gt_ns,0.1-1,3432,75,82.95,0.5423,121
+"retrained best, recall mask",tau_gt_ns,1-2,14256,34.23,37.32,0.5435,47.02
+"retrained best, recall mask",tau_gt_ns,2-3,51210,18.55,19.66,0.4556,27.42
+"retrained best, recall mask",tau_gt_ns,3-4,76386,18.8,19.8,0.6633,23.8
+"retrained best, recall mask",tau_gt_ns,4-6,223584,11.3,13.12,0.5722,12.89
+"retrained best, recall mask",tau_gt_ns,6-12,279246,0.01528,5.775,0.001133,-0.5185
+"retrained best, recall mask",n_components,1,99450,-0.73,10.33,-0.0384,6.367
+"retrained best, recall mask",n_components,2,135552,5.158,10.1,0.2596,9.65
+"retrained best, recall mask",n_components,3,311400,6.61,9.013,0.3529,11.47
+"retrained best, recall mask",n_components,4,101712,9.747,11.14,0.53,15.06
+"retrained best, recall mask",irf,IRF_APD,132660,16.68,18.29,0.7945,26.05
+"retrained best, recall mask",irf,IRF_DL4FLI,58908,4.008,7.749,0.215,5.191
+"retrained best, recall mask",irf,IRF_DLT,56172,-0.2581,10.19,-0.01252,6.951
+"retrained best, recall mask",irf,IRF_FPFLI,60798,5.517,8.804,0.3071,6.771
+"retrained best, recall mask",irf,IRF_PMT,67440,4.768,7.919,0.3402,8.056
+"retrained best, recall mask",irf,IRF_flimfit,20358,-0.6877,3.699,-0.05674,-0.7187
+"retrained best, recall mask",irf,IRF_simulated,59082,-0.1542,5.337,-0.01094,-0.1157
+"retrained best, recall mask",irf,IRF_simulated_broad,24564,2.296,5.18,0.1535,2.508
+"retrained best, recall mask",irf,IRF_simulated_broad_s,85560,14.91,16.01,0.6565,16.41
+"retrained best, recall mask",irf,IRF_simulated_narrow,58044,5.174,9.517,0.1705,6.263
+"retrained best, recall mask",irf,IRF_simulated_s,24528,1.473,9.645,0.08994,5.305
+"retrained best, recall mask",inside_otsu_adaptive_mask,False,137132,8.306,12.36,0.4656,14.36
+"retrained best, recall mask",inside_otsu_adaptive_mask,True,510982,5.239,9.191,0.2733,9.932
+"retrained best, true mask",all,all,648114,5.785,9.7,0.3058,10.97
+"retrained best, true mask",photons,10,108019,8.351,13.54,0.4556,16.15
+"retrained best, true mask",photons,20,108019,6.635,11.46,0.3615,12.85
+"retrained best, true mask",photons,50,108019,5.703,10.23,0.3034,10.48
+"retrained best, true mask",photons,100,108019,5.254,9.264,0.2744,9.244
+"retrained best, true mask",photons,500,108019,4.93,7.809,0.257,8.472
+"retrained best, true mask",photons,1000,108019,5.015,7.483,0.2616,8.61
+"retrained best, true mask",tau_gt_ns,0.1-1,3432,75.52,83.41,0.554,123.4
+"retrained best, true mask",tau_gt_ns,1-2,14256,34.71,37.38,0.5517,48.12
+"retrained best, true mask",tau_gt_ns,2-3,51210,18.68,19.65,0.4593,27.49
+"retrained best, true mask",tau_gt_ns,3-4,76386,18.8,19.63,0.6636,23.8
+"retrained best, true mask",tau_gt_ns,4-6,223584,11.26,13.03,0.57,12.95
+"retrained best, true mask",tau_gt_ns,6-12,279246,-0.01299,5.743,-0.0009181,-0.4381
+"retrained best, true mask",n_components,1,99450,-0.673,10.32,-0.03533,6.859
+"retrained best, true mask",n_components,2,135552,5.168,10.07,0.2605,9.851
+"retrained best, true mask",n_components,3,311400,6.55,8.929,0.3496,11.44
+"retrained best, true mask",n_components,4,101712,9.684,11.06,0.527,15.02
+"retrained best, true mask",irf,IRF_APD,132660,16.62,18.11,0.7928,26.14
+"retrained best, true mask",irf,IRF_DL4FLI,58908,3.988,7.719,0.2145,5.241
+"retrained best, true mask",irf,IRF_DLT,56172,-0.3346,10.12,-0.016,7.094
+"retrained best, true mask",irf,IRF_FPFLI,60798,5.492,8.752,0.3046,6.965
+"retrained best, true mask",irf,IRF_PMT,67440,4.74,7.887,0.3387,8.113
+"retrained best, true mask",irf,IRF_flimfit,20358,-0.7308,3.679,-0.06006,-0.734
+"retrained best, true mask",irf,IRF_simulated,59082,-0.1464,5.333,-0.01038,-0.07679
+"retrained best, true mask",irf,IRF_simulated_broad,24564,2.265,5.1,0.151,2.891
+"retrained best, true mask",irf,IRF_simulated_broad_s,85560,14.74,15.73,0.6481,16.46
+"retrained best, true mask",irf,IRF_simulated_narrow,58044,5.224,9.527,0.1721,6.467
+"retrained best, true mask",irf,IRF_simulated_s,24528,1.364,9.596,0.08395,5.187
+"retrained best, true mask",inside_otsu_adaptive_mask,False,137132,8.314,12.1,0.4659,14.81
+"retrained best, true mask",inside_otsu_adaptive_mask,True,510982,5.198,9.152,0.2714,9.936
+"retrained last, otsu_adaptive mask",all,all,648114,0.04768,9.273,0.002609,4.454
+"retrained last, otsu_adaptive mask",photons,10,108019,-0.5699,12.67,-0.032,3.291
+"retrained last, otsu_adaptive mask",photons,20,108019,0.5642,11.1,0.03106,5.925
+"retrained last, otsu_adaptive mask",photons,50,108019,0.4165,9.95,0.02299,4.853
+"retrained last, otsu_adaptive mask",photons,100,108019,-0.03295,9.098,-0.001903,4.037
+"retrained last, otsu_adaptive mask",photons,500,108019,0.03431,7.356,0.001757,4.266
+"retrained last, otsu_adaptive mask",photons,1000,108019,-0.1038,6.89,-0.005719,4.354
+"retrained last, otsu_adaptive mask",tau_gt_ns,0.1-1,3432,46.48,100,0.3316,191.1
+"retrained last, otsu_adaptive mask",tau_gt_ns,1-2,14256,13.48,35.12,0.2135,36.36
+"retrained last, otsu_adaptive mask",tau_gt_ns,2-3,51210,8.881,15.25,0.2182,18.25
+"retrained last, otsu_adaptive mask",tau_gt_ns,3-4,76386,11.73,16.58,0.4148,16.46
+"retrained last, otsu_adaptive mask",tau_gt_ns,4-6,223584,5.192,10.52,0.2629,5.938
+"retrained last, otsu_adaptive mask",tau_gt_ns,6-12,279246,-4.433,6.628,-0.3241,-6.469
+"retrained last, otsu_adaptive mask",n_components,1,99450,-7.858,12.65,-0.4185,-4.801
+"retrained last, otsu_adaptive mask",n_components,2,135552,-0.7486,9.304,-0.03836,3.788
+"retrained last, otsu_adaptive mask",n_components,3,311400,1.232,8.543,0.06706,6.206
+"retrained last, otsu_adaptive mask",n_components,4,101712,3.947,8.788,0.2182,9.028
+"retrained last, otsu_adaptive mask",irf,IRF_APD,132660,11.6,16.02,0.5726,22.08
+"retrained last, otsu_adaptive mask",irf,IRF_DL4FLI,58908,-2.919,7.032,-0.1622,-2.998
+"retrained last, otsu_adaptive mask",irf,IRF_DLT,56172,-6.751,11.96,-0.3251,-6.093
+"retrained last, otsu_adaptive mask",irf,IRF_FPFLI,60798,-0.5817,8.716,-0.03186,-2.033
+"retrained last, otsu_adaptive mask",irf,IRF_PMT,67440,1.463,7.197,0.1052,4.351
+"retrained last, otsu_adaptive mask",irf,IRF_flimfit,20358,-3.771,4.853,-0.3072,-4.547
+"retrained last, otsu_adaptive mask",irf,IRF_simulated,59082,-3.583,5.689,-0.2534,-4.896
+"retrained last, otsu_adaptive mask",irf,IRF_simulated_broad,24564,-6.315,7.554,-0.4229,-5.861
+"retrained last, otsu_adaptive mask",irf,IRF_simulated_broad_s,85560,6.539,11.51,0.3022,9.733
+"retrained last, otsu_adaptive mask",irf,IRF_simulated_narrow,58044,-1.127,8.42,-0.03858,-1.28
+"retrained last, otsu_adaptive mask",irf,IRF_simulated_s,24528,-2.181,12.37,-0.1356,3.001
+"retrained last, otsu_adaptive mask",inside_otsu_adaptive_mask,False,137132,-0.02829,14.84,-0.001654,6.683
+"retrained last, otsu_adaptive mask",inside_otsu_adaptive_mask,True,510982,0.061,8.277,0.003227,3.856
+"retrained last, recall mask",all,all,648114,0.924,8.601,0.05002,4.696
+"retrained last, recall mask",photons,10,108019,1.669,12.43,0.0908,6.766
+"retrained last, recall mask",photons,20,108019,1.435,10.67,0.07729,6.302
+"retrained last, recall mask",photons,50,108019,1.162,9.499,0.06254,4.827
+"retrained last, recall mask",photons,100,108019,0.7183,8.454,0.03844,3.854
+"retrained last, recall mask",photons,500,108019,0.6135,6.615,0.03313,3.223
+"retrained last, recall mask",photons,1000,108019,0.515,6.037,0.0279,3.206
+"retrained last, recall mask",tau_gt_ns,0.1-1,3432,3.807,60.01,0.03045,31.8
+"retrained last, recall mask",tau_gt_ns,1-2,14256,8.72,29.41,0.1374,17.96
+"retrained last, recall mask",tau_gt_ns,2-3,51210,8.306,14.47,0.2042,16.3
+"retrained last, recall mask",tau_gt_ns,3-4,76386,10.97,15.66,0.3872,15.75
+"retrained last, recall mask",tau_gt_ns,4-6,223584,5.621,10.4,0.2855,7.253
+"retrained last, recall mask",tau_gt_ns,6-12,279246,-2.973,5.888,-0.2165,-3.512
+"retrained last, recall mask",n_components,1,99450,-6.416,11.19,-0.3401,-4.102
+"retrained last, recall mask",n_components,2,135552,-0.04798,8.713,-0.002612,3.599
+"retrained last, recall mask",n_components,3,311400,2.11,7.753,0.113,6.375
+"retrained last, recall mask",n_components,4,101712,4.862,8.934,0.269,9.623
+"retrained last, recall mask",irf,IRF_APD,132660,11.72,15.3,0.5746,18.57
+"retrained last, recall mask",irf,IRF_DL4FLI,58908,-0.8218,6.446,-0.04537,-0.7402
+"retrained last, recall mask",irf,IRF_DLT,56172,-6.532,11.72,-0.3109,-5.255
+"retrained last, recall mask",irf,IRF_FPFLI,60798,1.029,7.318,0.05753,2.192
+"retrained last, recall mask",irf,IRF_PMT,67440,1.949,6.998,0.1388,4.768
+"retrained last, recall mask",irf,IRF_flimfit,20358,-3.709,4.835,-0.3007,-3.852
+"retrained last, recall mask",irf,IRF_simulated,59082,-3.535,5.653,-0.2492,-3.556
+"retrained last, recall mask",irf,IRF_simulated_broad,24564,-1.812,4.923,-0.1219,-1.71
+"retrained last, recall mask",irf,IRF_simulated_broad_s,85560,7.04,11.19,0.3194,8.597
+"retrained last, recall mask",irf,IRF_simulated_narrow,58044,-0.9817,8.362,-0.03434,-0.3722
+"retrained last, recall mask",irf,IRF_simulated_s,24528,0.04454,8.526,0.002828,3.294
+"retrained last, recall mask",inside_otsu_adaptive_mask,False,137132,3.857,10.6,0.2189,8.518
+"retrained last, recall mask",inside_otsu_adaptive_mask,True,510982,0.2747,8.196,0.01463,3.671
+"pretrained, recall mask",all,all,648114,-1.299,9.071,-0.07056,2.315
+"pretrained, recall mask",photons,10,108019,1.257,13,0.06739,7.013
+"pretrained, recall mask",photons,20,108019,0.6513,10.74,0.03536,5.265
+"pretrained, recall mask",photons,50,108019,-0.3556,9.299,-0.01899,3.136
+"pretrained, recall mask",photons,100,108019,-1.943,8.864,-0.1067,0.6176
+"pretrained, recall mask",photons,500,108019,-2.796,7.507,-0.1539,-1.189
+"pretrained, recall mask",photons,1000,108019,-2.554,6.998,-0.1402,-0.9537
+"pretrained, recall mask",tau_gt_ns,0.1-1,3432,100.2,100.2,0.7089,144.6
+"pretrained, recall mask",tau_gt_ns,1-2,14256,37.89,41.15,0.5918,50.91
+"pretrained, recall mask",tau_gt_ns,2-3,51210,12.42,15.7,0.3056,20.01
+"pretrained, recall mask",tau_gt_ns,3-4,76386,9.644,14.92,0.3401,11.99
+"pretrained, recall mask",tau_gt_ns,4-6,223584,1.528,8.062,0.07739,2.104
+"pretrained, recall mask",tau_gt_ns,6-12,279246,-6.309,7.83,-0.4605,-7.638
+"pretrained, recall mask",n_components,1,99450,-4.007,13.19,-0.2272,3.738
+"pretrained, recall mask",n_components,2,135552,-1.036,9.664,-0.05206,2.457
+"pretrained, recall mask",n_components,3,311400,-1.38,8.387,-0.07538,1.654
+"pretrained, recall mask",n_components,4,101712,0.3339,7.74,0.01908,2.758
+"pretrained, recall mask",irf,IRF_APD,132660,5.869,11.22,0.2866,14.07
+"pretrained, recall mask",irf,IRF_DL4FLI,58908,-0.2001,7.919,-0.01122,3.017
+"pretrained, recall mask",irf,IRF_DLT,56172,-9.705,14.8,-0.4444,-3.513
+"pretrained, recall mask",irf,IRF_FPFLI,60798,-5.366,10.64,-0.3054,-8.026
+"pretrained, recall mask",irf,IRF_PMT,67440,-0.6856,6.229,-0.04777,1.527
+"pretrained, recall mask",irf,IRF_flimfit,20358,-6.019,6.669,-0.4926,-5.621
+"pretrained, recall mask",irf,IRF_simulated,59082,-5.398,7.281,-0.3865,-4.635
+"pretrained, recall mask",irf,IRF_simulated_broad,24564,-4.436,5.992,-0.2961,-4.303
+"pretrained, recall mask",irf,IRF_simulated_broad_s,85560,3.569,9.041,0.1719,6.907
+"pretrained, recall mask",irf,IRF_simulated_narrow,58044,-0.2149,8.798,-0.007344,1.294
+"pretrained, recall mask",irf,IRF_simulated_s,24528,-9.864,13.39,-0.6212,-5.475
+"pretrained, recall mask",inside_otsu_adaptive_mask,False,137132,-0.7666,10.44,-0.04267,3.758
+"pretrained, recall mask",inside_otsu_adaptive_mask,True,510982,-1.42,8.758,-0.07667,1.927
+"pretrained, true mask",all,all,648114,-1.344,9.025,-0.07281,2.445
+"pretrained, true mask",photons,10,108019,0.8282,12.44,0.04378,7.727
+"pretrained, true mask",photons,20,108019,0.6248,10.71,0.03327,5.332
+"pretrained, true mask",photons,50,108019,-0.3556,9.299,-0.01905,3.137
+"pretrained, true mask",photons,100,108019,-1.943,8.864,-0.1067,0.6176
+"pretrained, true mask",photons,500,108019,-2.796,7.507,-0.1539,-1.189
+"pretrained, true mask",photons,1000,108019,-2.554,6.998,-0.1402,-0.9537
+"pretrained, true mask",tau_gt_ns,0.1-1,3432,102.3,102.3,0.7188,148
+"pretrained, true mask",tau_gt_ns,1-2,14256,38.33,40.99,0.5973,52.06
+"pretrained, true mask",tau_gt_ns,2-3,51210,12.49,15.62,0.307,20.05
+"pretrained, true mask",tau_gt_ns,3-4,76386,9.622,14.72,0.339,11.99
+"pretrained, true mask",tau_gt_ns,4-6,223584,1.448,7.989,0.07336,2.185
+"pretrained, true mask",tau_gt_ns,6-12,279246,-6.359,7.826,-0.4641,-7.506
+"pretrained, true mask",n_components,1,99450,-3.979,13.19,-0.2257,4.31
+"pretrained, true mask",n_components,2,135552,-1.047,9.612,-0.05262,2.685
+"pretrained, true mask",n_components,3,311400,-1.449,8.329,-0.0791,1.658
+"pretrained, true mask",n_components,4,101712,0.2744,7.712,0.01544,2.71
+"pretrained, true mask",irf,IRF_APD,132660,5.823,11.06,0.2845,14.28
+"pretrained, true mask",irf,IRF_DL4FLI,58908,-0.2283,7.866,-0.01248,3.1
+"pretrained, true mask",irf,IRF_DLT,56172,-9.732,14.74,-0.4485,-3.341
+"pretrained, true mask",irf,IRF_FPFLI,60798,-5.449,10.62,-0.3094,-7.856
+"pretrained, true mask",irf,IRF_PMT,67440,-0.7163,6.234,-0.04947,1.599
+"pretrained, true mask",irf,IRF_flimfit,20358,-6.065,6.706,-0.4963,-5.565
+"pretrained, true mask",irf,IRF_simulated,59082,-5.405,7.282,-0.3867,-4.588
+"pretrained, true mask",irf,IRF_simulated_broad,24564,-4.465,5.963,-0.2973,-3.839
+"pretrained, true mask",irf,IRF_simulated_broad_s,85560,3.444,8.961,0.1655,6.925
+"pretrained, true mask",irf,IRF_simulated_narrow,58044,-0.2359,8.739,-0.008276,1.451
+"pretrained, true mask",irf,IRF_simulated_s,24528,-9.886,13.37,-0.6226,-5.425
+"pretrained, true mask",inside_otsu_adaptive_mask,False,137132,-0.7289,10.28,-0.04025,4.398
+"pretrained, true mask",inside_otsu_adaptive_mask,True,510982,-1.484,8.735,-0.07997,1.921
+"DiffFLIM v2 6 h, 50 steps",all,all,648114,1.598,6.478,0.0848,3.945
+"DiffFLIM v2 6 h, 50 steps",photons,10,108019,3.084,9.773,0.1675,7.96
+"DiffFLIM v2 6 h, 50 steps",photons,20,108019,1.718,8.585,0.09393,4.858
+"DiffFLIM v2 6 h, 50 steps",photons,50,108019,1.917,7.582,0.101,3.934
+"DiffFLIM v2 6 h, 50 steps",photons,100,108019,1.437,6.626,0.07517,2.974
+"DiffFLIM v2 6 h, 50 steps",photons,500,108019,1.035,4.748,0.05414,1.826
+"DiffFLIM v2 6 h, 50 steps",photons,1000,108019,1.291,4.289,0.06766,2.118
+"DiffFLIM v2 6 h, 50 steps",tau_gt_ns,0.1-1,3432,12.45,19.17,0.09196,27.75
+"DiffFLIM v2 6 h, 50 steps",tau_gt_ns,1-2,14256,7.657,12.64,0.1161,19.37
+"DiffFLIM v2 6 h, 50 steps",tau_gt_ns,2-3,51210,4.364,9.88,0.1078,11.95
+"DiffFLIM v2 6 h, 50 steps",tau_gt_ns,3-4,76386,6.608,11.13,0.2325,10.8
+"DiffFLIM v2 6 h, 50 steps",tau_gt_ns,4-6,223584,4.291,7.537,0.2206,5.361
+"DiffFLIM v2 6 h, 50 steps",tau_gt_ns,6-12,279246,-0.8277,4.665,-0.06003,-1.611
+"DiffFLIM v2 6 h, 50 steps",n_components,1,99450,-1.715,7.09,-0.07706,0.4811
+"DiffFLIM v2 6 h, 50 steps",n_components,2,135552,1.68,8.138,0.08636,4.637
+"DiffFLIM v2 6 h, 50 steps",n_components,3,311400,1.913,5.938,0.1065,4.245
+"DiffFLIM v2 6 h, 50 steps",n_components,4,101712,3.261,5.869,0.1842,5.49
+"DiffFLIM v2 6 h, 50 steps",irf,IRF_APD,132660,5.647,9.051,0.2595,11.06
+"DiffFLIM v2 6 h, 50 steps",irf,IRF_DL4FLI,58908,1.554,5.644,0.08244,2.641
+"DiffFLIM v2 6 h, 50 steps",irf,IRF_DLT,56172,-3.215,8.262,-0.1379,-2.227
+"DiffFLIM v2 6 h, 50 steps",irf,IRF_FPFLI,60798,3.368,6.827,0.1855,4.914
+"DiffFLIM v2 6 h, 50 steps",irf,IRF_PMT,67440,3.219,5.901,0.2204,4.214
+"DiffFLIM v2 6 h, 50 steps",irf,IRF_flimfit,20358,0.9354,3.635,0.07669,0.9794
+"DiffFLIM v2 6 h, 50 steps",irf,IRF_simulated,59082,-0.6077,4.206,-0.04241,0.1396
+"DiffFLIM v2 6 h, 50 steps",irf,IRF_simulated_broad,24564,-0.02306,4.468,-0.001399,0.4193
+"DiffFLIM v2 6 h, 50 steps",irf,IRF_simulated_broad_s,85560,3.787,7.554,0.177,5.658
+"DiffFLIM v2 6 h, 50 steps",irf,IRF_simulated_narrow,58044,-2.246,6.405,-0.07605,-1.066
+"DiffFLIM v2 6 h, 50 steps",irf,IRF_simulated_s,24528,-1.307,6.114,-0.08007,0.6066
+"DiffFLIM v2 6 h, 50 steps",inside_otsu_adaptive_mask,False,137132,3.666,8.143,0.2018,7.212
+"DiffFLIM v2 6 h, 50 steps",inside_otsu_adaptive_mask,True,510982,1.157,6.113,0.06063,3.068
+"DiffFLIM v2 6 h, 10 steps",all,all,648114,1.506,6.396,0.07987,3.673
+"DiffFLIM v2 6 h, 10 steps",photons,10,108019,2.596,9.541,0.1423,7.215
+"DiffFLIM v2 6 h, 10 steps",photons,20,108019,1.448,8.427,0.07888,4.355
+"DiffFLIM v2 6 h, 10 steps",photons,50,108019,1.763,7.454,0.09373,3.637
+"DiffFLIM v2 6 h, 10 steps",photons,100,108019,1.385,6.527,0.0726,2.8
+"DiffFLIM v2 6 h, 10 steps",photons,500,108019,1.09,4.704,0.05632,1.861
+"DiffFLIM v2 6 h, 10 steps",photons,1000,108019,1.331,4.272,0.06992,2.171
+"DiffFLIM v2 6 h, 10 steps",tau_gt_ns,0.1-1,3432,11.52,18.78,0.08324,25.49
+"DiffFLIM v2 6 h, 10 steps",tau_gt_ns,1-2,14256,7.163,12.35,0.1085,18.2
+"DiffFLIM v2 6 h, 10 steps",tau_gt_ns,2-3,51210,4.113,9.721,0.1019,11.39
+"DiffFLIM v2 6 h, 10 steps",tau_gt_ns,3-4,76386,6.456,10.89,0.2261,10.43
+"DiffFLIM v2 6 h, 10 steps",tau_gt_ns,4-6,223584,4.154,7.428,0.2138,5.089
+"DiffFLIM v2 6 h, 10 steps",tau_gt_ns,6-12,279246,-0.8782,4.618,-0.0639,-1.733
+"DiffFLIM v2 6 h, 10 steps",n_components,1,99450,-1.82,7.025,-0.08174,0.02671
+"DiffFLIM v2 6 h, 10 steps",n_components,2,135552,1.587,8.046,0.08062,4.292
+"DiffFLIM v2 6 h, 10 steps",n_components,3,311400,1.812,5.847,0.1011,4.02
+"DiffFLIM v2 6 h, 10 steps",n_components,4,101712,3.172,5.786,0.1786,5.353
+"DiffFLIM v2 6 h, 10 steps",irf,IRF_APD,132660,5.717,9.01,0.2636,10.85
+"DiffFLIM v2 6 h, 10 steps",irf,IRF_DL4FLI,58908,1.433,5.454,0.07556,2.324
+"DiffFLIM v2 6 h, 10 steps",irf,IRF_DLT,56172,-3.495,8.143,-0.1504,-2.77
+"DiffFLIM v2 6 h, 10 steps",irf,IRF_FPFLI,60798,3.288,6.72,0.18,4.669
+"DiffFLIM v2 6 h, 10 steps",irf,IRF_PMT,67440,3.171,5.873,0.2174,4.059
+"DiffFLIM v2 6 h, 10 steps",irf,IRF_flimfit,20358,0.8518,3.578,0.06891,0.8992
+"DiffFLIM v2 6 h, 10 steps",irf,IRF_simulated,59082,-0.6717,4.125,-0.04775,-0.04009
+"DiffFLIM v2 6 h, 10 steps",irf,IRF_simulated_broad,24564,0.02423,4.449,0.001534,0.4804
+"DiffFLIM v2 6 h, 10 steps",irf,IRF_simulated_broad_s,85560,3.57,7.408,0.1671,5.284
+"DiffFLIM v2 6 h, 10 steps",irf,IRF_simulated_narrow,58044,-2.344,6.312,-0.07907,-1.347
+"DiffFLIM v2 6 h, 10 steps",irf,IRF_simulated_s,24528,-1.687,6.147,-0.1055,0.04729
+"DiffFLIM v2 6 h, 10 steps",inside_otsu_adaptive_mask,False,137132,3.493,8.015,0.1916,6.77
+"DiffFLIM v2 6 h, 10 steps",inside_otsu_adaptive_mask,True,510982,1.07,6.037,0.05608,2.842

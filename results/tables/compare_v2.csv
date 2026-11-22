@@ -1,73 +1,121 @@
-method,photons,subset,n_images,tau_mare_pct,tau_bias_pct,int_mare_pct,int_bias_pct,tau_mare_inside_mask_pct,mask_recall
-FLIMngo pretrained,10,fg,40,19.8,-5.418,,,12.51,0.7377
-FLIMngo pretrained,10,bright,40,15.61,0.9433,,,12.42,0.7377
-FLIMngo retrained v3,10,fg,40,13.96,5.511,,,12.02,0.7377
-FLIMngo retrained v3,10,bright,40,12.57,9.613,,,12.11,0.7377
-FLIMngo pretrained,20,fg,40,19.22,-3.375,,,12.11,0.7542
-FLIMngo pretrained,20,bright,40,16.95,1.289,,,12.01,0.7542
-FLIMngo retrained v3,20,fg,40,12.38,6.914,,,11.19,0.7542
-FLIMngo retrained v3,20,bright,40,11.83,9.451,,,11.07,0.7542
-FLIMngo pretrained,50,fg,40,14.13,-2.6,,,10.42,0.811
-FLIMngo pretrained,50,bright,40,13.05,0.5329,,,10.37,0.811
-FLIMngo retrained v3,50,fg,40,11.04,6.043,,,10.12,0.811
-FLIMngo retrained v3,50,bright,40,10.69,8.164,,,10.14,0.811
-FLIMngo pretrained,100,fg,40,12.67,-3.615,,,9.527,0.8136
-FLIMngo pretrained,100,bright,40,11.55,-0.498,,,9.485,0.8136
-FLIMngo retrained v3,100,fg,40,9.864,5.179,,,9.083,0.8136
-FLIMngo retrained v3,100,bright,40,9.674,7.469,,,9.259,0.8136
-FLIMngo pretrained,500,fg,40,10.83,-4.43,,,8.134,0.8091
-FLIMngo pretrained,500,bright,40,10.27,-1.459,,,8.39,0.8091
-FLIMngo retrained v3,500,fg,40,8.515,4.669,,,7.698,0.8091
-FLIMngo retrained v3,500,bright,40,8.822,6.888,,,8.34,0.8091
-FLIMngo pretrained,1000,fg,40,10.26,-4.311,,,7.648,0.8048
-FLIMngo pretrained,1000,bright,40,9.831,-1.331,,,7.94,0.8048
-FLIMngo retrained v3,1000,fg,40,8.078,4.506,,,7.287,0.8048
-FLIMngo retrained v3,1000,bright,40,8.514,6.6,,,8.035,0.8048
-MLE,10,fg,40,32.79,9.562,21.86,-1.66,,
-MLE,10,bright,40,32.61,13.77,20.75,-1.674,,
-Binned MLE 5x5,10,fg,40,15.16,9.705,7.48,-2.19,,
-Binned MLE 5x5,10,bright,40,14.37,12.37,6.562,-2.591,,
-MLE,20,fg,40,24.57,10.62,15.34,-0.7815,,
-MLE,20,bright,40,24.94,14.32,14.52,-0.7021,,
-Binned MLE 5x5,20,fg,40,13.77,9.007,6.332,-1.773,,
-Binned MLE 5x5,20,bright,40,13.03,11.42,5.619,-2.384,,
-MLE,50,fg,40,17.73,10.7,9.644,-0.3958,,
-MLE,50,bright,40,19.06,14.54,9.184,-0.3372,,
-Binned MLE 5x5,50,fg,40,12.98,8.628,5.429,-1.333,,
-Binned MLE 5x5,50,bright,40,12.4,11.27,4.875,-2.227,,
-MLE,100,fg,40,14.07,9.973,6.857,-0.2298,,
-MLE,100,bright,40,15.82,13.69,6.493,-0.2243,,
-Binned MLE 5x5,100,fg,40,12.62,8.373,5.09,-1.159,,
-Binned MLE 5x5,100,bright,40,12.07,10.99,4.566,-2.08,,
-MLE,500,fg,40,9.027,8.004,3.054,-0.1136,,
-MLE,500,bright,40,12.02,11.85,2.883,-0.1251,,
-Binned MLE 5x5,500,fg,40,12.4,8.211,4.761,-1.027,,
-Binned MLE 5x5,500,bright,40,11.99,10.99,4.352,-2.01,,
-MLE,1000,fg,40,7.571,7.053,2.177,-0.07464,,
-MLE,1000,bright,40,11.33,11.28,2.065,-0.07248,,
-Binned MLE 5x5,1000,fg,40,12.28,8.144,4.699,-0.9631,,
-Binned MLE 5x5,1000,bright,40,11.85,10.87,4.29,-2.013,,
-DiffFLIM v2 (3 h),10,fg,40,10.14,2.869,4.753,1.884,,
-DiffFLIM v2 (3 h),10,bright,40,9.092,3.813,5.125,-1.395,,
-DiffFLIM v2 (3 h),20,fg,40,8.908,2.139,3.711,-0.3595,,
-DiffFLIM v2 (3 h),20,bright,40,7.984,2.842,5.176,-3.262,,
-DiffFLIM v2 (3 h),50,fg,40,7.954,2.204,3.273,0.2837,,
-DiffFLIM v2 (3 h),50,bright,40,7.264,3.106,4.379,-2.041,,
-DiffFLIM v2 (3 h),100,fg,40,6.93,1.736,2.931,-0.1929,,
-DiffFLIM v2 (3 h),100,bright,40,6.394,2.551,3.979,-2.079,,
-DiffFLIM v2 (3 h),500,fg,40,5.056,1.282,2.282,-0.34,,
-DiffFLIM v2 (3 h),500,bright,40,4.933,2.036,2.715,-1.292,,
-DiffFLIM v2 (3 h),1000,fg,40,4.688,1.574,2.299,-1.554,,
-DiffFLIM v2 (3 h),1000,bright,40,4.774,2.367,2.902,-2.552,,
-DiffFLIM v2 (6 h),10,fg,40,9.773,3.084,4.535,1.682,,
-DiffFLIM v2 (6 h),10,bright,40,8.681,3.844,5.049,-1.5,,
-DiffFLIM v2 (6 h),20,fg,40,8.585,1.718,3.62,0.09974,,
-DiffFLIM v2 (6 h),20,bright,40,7.64,2.386,5.03,-2.895,,
-DiffFLIM v2 (6 h),50,fg,40,7.582,1.917,3.196,0.5013,,
-DiffFLIM v2 (6 h),50,bright,40,6.85,2.726,4.296,-1.946,,
-DiffFLIM v2 (6 h),100,fg,40,6.626,1.437,2.853,0.1098,,
-DiffFLIM v2 (6 h),100,bright,40,6.013,2.203,3.873,-1.835,,
-DiffFLIM v2 (6 h),500,fg,40,4.748,1.035,2.118,0.1859,,
-DiffFLIM v2 (6 h),500,bright,40,4.584,1.691,2.514,-0.6991,,
-DiffFLIM v2 (6 h),1000,fg,40,4.289,1.291,2.06,-1.065,,
-DiffFLIM v2 (6 h),1000,bright,40,4.359,2.189,2.619,-2.093,,
+method,mask,ddim_steps,photons,subset,n_images,tau_mare_pct,tau_bias_pct,int_mare_pct,int_bias_pct,tau_mare_inside_mask_pct,mask_recall
+FLIMngo pretrained,flimngo_recall,,10,fg,40,13,1.257,,,12.63,0.9789
+FLIMngo pretrained,flimngo_recall,,10,bright,40,11.48,3.159,,,11.34,0.9789
+FLIMngo retrained v3,flimngo_recall,,10,fg,40,14.19,8.496,,,13.82,0.9789
+FLIMngo retrained v3,flimngo_recall,,10,bright,40,13.84,11.61,,,13.72,0.9789
+FLIMngo pretrained,otsu_adaptive,,10,fg,40,19.8,-5.418,,,12.51,0.7377
+FLIMngo pretrained,otsu_adaptive,,10,bright,40,15.61,0.9433,,,12.42,0.7377
+FLIMngo retrained v3,otsu_adaptive,,10,fg,40,13.96,5.511,,,12.02,0.7377
+FLIMngo retrained v3,otsu_adaptive,,10,bright,40,12.57,9.613,,,12.11,0.7377
+FLIMngo pretrained,flimngo_recall,,20,fg,40,10.74,0.6513,,,10.71,0.9982
+FLIMngo pretrained,flimngo_recall,,20,bright,40,9.554,1.359,,,9.548,0.9982
+FLIMngo retrained v3,flimngo_recall,,20,fg,40,11.53,6.727,,,11.51,0.9982
+FLIMngo retrained v3,flimngo_recall,,20,bright,40,11.12,8.548,,,11.11,0.9982
+FLIMngo pretrained,otsu_adaptive,,20,fg,40,19.22,-3.375,,,12.11,0.7542
+FLIMngo pretrained,otsu_adaptive,,20,bright,40,16.95,1.289,,,12.01,0.7542
+FLIMngo retrained v3,otsu_adaptive,,20,fg,40,12.38,6.914,,,11.19,0.7542
+FLIMngo retrained v3,otsu_adaptive,,20,bright,40,11.83,9.451,,,11.07,0.7542
+FLIMngo pretrained,flimngo_recall,,50,fg,40,9.299,-0.3556,,,9.299,1
+FLIMngo pretrained,flimngo_recall,,50,bright,40,8.233,-0.2283,,,8.233,1
+FLIMngo retrained v3,flimngo_recall,,50,fg,40,10.23,5.704,,,10.23,1
+FLIMngo retrained v3,flimngo_recall,,50,bright,40,10.02,7.415,,,10.02,1
+FLIMngo pretrained,otsu_adaptive,,50,fg,40,14.13,-2.6,,,10.42,0.811
+FLIMngo pretrained,otsu_adaptive,,50,bright,40,13.05,0.5329,,,10.37,0.811
+FLIMngo retrained v3,otsu_adaptive,,50,fg,40,11.04,6.043,,,10.12,0.811
+FLIMngo retrained v3,otsu_adaptive,,50,bright,40,10.69,8.164,,,10.14,0.811
+FLIMngo pretrained,flimngo_recall,,100,fg,40,8.864,-1.943,,,8.864,1
+FLIMngo pretrained,flimngo_recall,,100,bright,40,7.996,-1.973,,,7.996,1
+FLIMngo retrained v3,flimngo_recall,,100,fg,40,9.264,5.254,,,9.264,1
+FLIMngo retrained v3,flimngo_recall,,100,bright,40,9.306,7.104,,,9.306,1
+FLIMngo pretrained,otsu_adaptive,,100,fg,40,12.67,-3.615,,,9.527,0.8136
+FLIMngo pretrained,otsu_adaptive,,100,bright,40,11.55,-0.498,,,9.485,0.8136
+FLIMngo retrained v3,otsu_adaptive,,100,fg,40,9.864,5.179,,,9.083,0.8136
+FLIMngo retrained v3,otsu_adaptive,,100,bright,40,9.674,7.469,,,9.259,0.8136
+FLIMngo pretrained,flimngo_recall,,500,fg,40,7.507,-2.796,,,7.507,1
+FLIMngo pretrained,flimngo_recall,,500,bright,40,6.962,-2.438,,,6.962,1
+FLIMngo retrained v3,flimngo_recall,,500,fg,40,7.809,4.93,,,7.809,1
+FLIMngo retrained v3,flimngo_recall,,500,bright,40,8.29,6.779,,,8.29,1
+FLIMngo pretrained,otsu_adaptive,,500,fg,40,10.83,-4.43,,,8.134,0.8091
+FLIMngo pretrained,otsu_adaptive,,500,bright,40,10.27,-1.459,,,8.39,0.8091
+FLIMngo retrained v3,otsu_adaptive,,500,fg,40,8.515,4.669,,,7.698,0.8091
+FLIMngo retrained v3,otsu_adaptive,,500,bright,40,8.822,6.888,,,8.34,0.8091
+FLIMngo pretrained,flimngo_recall,,1000,fg,40,6.998,-2.554,,,6.998,1
+FLIMngo pretrained,flimngo_recall,,1000,bright,40,6.491,-1.983,,,6.491,1
+FLIMngo retrained v3,flimngo_recall,,1000,fg,40,7.483,5.015,,,7.483,1
+FLIMngo retrained v3,flimngo_recall,,1000,bright,40,8.085,6.79,,,8.085,1
+FLIMngo pretrained,otsu_adaptive,,1000,fg,40,10.26,-4.311,,,7.648,0.8048
+FLIMngo pretrained,otsu_adaptive,,1000,bright,40,9.831,-1.331,,,7.94,0.8048
+FLIMngo retrained v3,otsu_adaptive,,1000,fg,40,8.078,4.506,,,7.287,0.8048
+FLIMngo retrained v3,otsu_adaptive,,1000,bright,40,8.514,6.6,,,8.035,0.8048
+DiffFLIM v2 (3 h),,10,10,fg,40,9.952,2.385,4.599,1.646,,
+DiffFLIM v2 (3 h),,10,10,bright,40,8.837,3.37,5.019,-1.638,,
+DiffFLIM v2 (3 h),,10,20,fg,40,8.725,1.829,3.656,-0.4251,,
+DiffFLIM v2 (3 h),,10,20,bright,40,7.837,2.585,5.153,-3.372,,
+DiffFLIM v2 (3 h),,10,50,fg,40,7.829,2.018,3.232,0.2934,,
+DiffFLIM v2 (3 h),,10,50,bright,40,7.114,2.989,4.331,-2.086,,
+DiffFLIM v2 (3 h),,10,100,fg,40,6.815,1.661,2.902,-0.17,,
+DiffFLIM v2 (3 h),,10,100,bright,40,6.291,2.539,3.937,-2.091,,
+DiffFLIM v2 (3 h),,10,500,fg,40,5.003,1.271,2.262,-0.2408,,
+DiffFLIM v2 (3 h),,10,500,bright,40,4.887,2.079,2.665,-1.179,,
+DiffFLIM v2 (3 h),,10,1000,fg,40,4.639,1.51,2.298,-1.547,,
+DiffFLIM v2 (3 h),,10,1000,bright,40,4.738,2.325,2.874,-2.525,,
+DiffFLIM v2 (3 h),,50,10,fg,40,10.14,2.869,4.753,1.884,,
+DiffFLIM v2 (3 h),,50,10,bright,40,9.092,3.813,5.125,-1.395,,
+DiffFLIM v2 (3 h),,50,20,fg,40,8.908,2.139,3.711,-0.3595,,
+DiffFLIM v2 (3 h),,50,20,bright,40,7.984,2.842,5.176,-3.262,,
+DiffFLIM v2 (3 h),,50,50,fg,40,7.954,2.204,3.273,0.2837,,
+DiffFLIM v2 (3 h),,50,50,bright,40,7.264,3.106,4.379,-2.041,,
+DiffFLIM v2 (3 h),,50,100,fg,40,6.93,1.736,2.931,-0.1929,,
+DiffFLIM v2 (3 h),,50,100,bright,40,6.394,2.551,3.979,-2.079,,
+DiffFLIM v2 (3 h),,50,500,fg,40,5.056,1.282,2.282,-0.34,,
+DiffFLIM v2 (3 h),,50,500,bright,40,4.933,2.036,2.715,-1.292,,
+DiffFLIM v2 (3 h),,50,1000,fg,40,4.688,1.574,2.299,-1.554,,
+DiffFLIM v2 (3 h),,50,1000,bright,40,4.774,2.367,2.902,-2.552,,
+DiffFLIM v2 (6 h),,10,10,fg,40,9.541,2.596,4.443,1.509,,
+DiffFLIM v2 (6 h),,10,10,bright,40,8.443,3.433,4.943,-1.591,,
+DiffFLIM v2 (6 h),,10,20,fg,40,8.427,1.448,3.572,0.05439,,
+DiffFLIM v2 (6 h),,10,20,bright,40,7.505,2.094,4.995,-2.985,,
+DiffFLIM v2 (6 h),,10,50,fg,40,7.454,1.763,3.17,0.5152,,
+DiffFLIM v2 (6 h),,10,50,bright,40,6.757,2.589,4.268,-2.061,,
+DiffFLIM v2 (6 h),,10,100,fg,40,6.527,1.385,2.817,0.07006,,
+DiffFLIM v2 (6 h),,10,100,bright,40,5.909,2.149,3.85,-1.957,,
+DiffFLIM v2 (6 h),,10,500,fg,40,4.704,1.09,2.116,0.249,,
+DiffFLIM v2 (6 h),,10,500,bright,40,4.56,1.785,2.487,-0.6625,,
+DiffFLIM v2 (6 h),,10,1000,fg,40,4.272,1.331,2.022,-0.9726,,
+DiffFLIM v2 (6 h),,10,1000,bright,40,4.34,2.254,2.581,-2.03,,
+DiffFLIM v2 (6 h),,50,10,fg,40,9.773,3.084,4.535,1.682,,
+DiffFLIM v2 (6 h),,50,10,bright,40,8.681,3.844,5.049,-1.5,,
+DiffFLIM v2 (6 h),,50,20,fg,40,8.585,1.718,3.62,0.09974,,
+DiffFLIM v2 (6 h),,50,20,bright,40,7.64,2.386,5.03,-2.895,,
+DiffFLIM v2 (6 h),,50,50,fg,40,7.582,1.917,3.196,0.5013,,
+DiffFLIM v2 (6 h),,50,50,bright,40,6.85,2.726,4.296,-1.946,,
+DiffFLIM v2 (6 h),,50,100,fg,40,6.626,1.437,2.853,0.1098,,
+DiffFLIM v2 (6 h),,50,100,bright,40,6.013,2.203,3.873,-1.835,,
+DiffFLIM v2 (6 h),,50,500,fg,40,4.748,1.035,2.118,0.1859,,
+DiffFLIM v2 (6 h),,50,500,bright,40,4.584,1.691,2.514,-0.6991,,
+DiffFLIM v2 (6 h),,50,1000,fg,40,4.289,1.291,2.06,-1.065,,
+DiffFLIM v2 (6 h),,50,1000,bright,40,4.359,2.189,2.619,-2.093,,
+MLE,,,10,fg,40,32.79,9.562,21.86,-1.66,,
+MLE,,,10,bright,40,32.61,13.77,20.75,-1.674,,
+Binned MLE 5x5,,,10,fg,40,15.16,9.705,7.48,-2.19,,
+Binned MLE 5x5,,,10,bright,40,14.37,12.37,6.562,-2.591,,
+MLE,,,20,fg,40,24.57,10.62,15.34,-0.7815,,
+MLE,,,20,bright,40,24.94,14.32,14.52,-0.7021,,
+Binned MLE 5x5,,,20,fg,40,13.77,9.007,6.332,-1.773,,
+Binned MLE 5x5,,,20,bright,40,13.03,11.42,5.619,-2.384,,
+MLE,,,50,fg,40,17.73,10.7,9.644,-0.3958,,
+MLE,,,50,bright,40,19.06,14.54,9.184,-0.3372,,
+Binned MLE 5x5,,,50,fg,40,12.98,8.628,5.429,-1.333,,
+Binned MLE 5x5,,,50,bright,40,12.4,11.27,4.875,-2.227,,
+MLE,,,100,fg,40,14.07,9.973,6.857,-0.2298,,
+MLE,,,100,bright,40,15.82,13.69,6.493,-0.2243,,
+Binned MLE 5x5,,,100,fg,40,12.62,8.373,5.09,-1.159,,
+Binned MLE 5x5,,,100,bright,40,12.07,10.99,4.566,-2.08,,
+MLE,,,500,fg,40,9.027,8.004,3.054,-0.1136,,
+MLE,,,500,bright,40,12.02,11.85,2.883,-0.1251,,
+Binned MLE 5x5,,,500,fg,40,12.4,8.211,4.761,-1.027,,
+Binned MLE 5x5,,,500,bright,40,11.99,10.99,4.352,-2.01,,
+MLE,,,1000,fg,40,7.571,7.053,2.177,-0.07464,,
+MLE,,,1000,bright,40,11.33,11.28,2.065,-0.07248,,
+Binned MLE 5x5,,,1000,fg,40,12.28,8.144,4.699,-0.9631,,
+Binned MLE 5x5,,,1000,bright,40,11.85,10.87,4.29,-2.013,,

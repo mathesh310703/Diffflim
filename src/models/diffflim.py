@@ -43,6 +43,10 @@ INT_LOG_SCALE = 4.0
 
 BIN_FACTOR = 8  # 256 time bins -> 32
 
+# DDIM steps used by default for evaluation and calibration (2026-11-22: 10 instead of 50; on the v3
+# test set 10 steps gave the same error and, after recalibration, the same coverage at 1/5 of the time).
+DEFAULT_SAMPLE_STEPS = 10
+
 
 def _lib(x):
     return torch if torch.is_tensor(x) else np
@@ -224,7 +228,7 @@ class DiffFLIM(nn.Module):
         return (w * (out - goal) ** 2).sum() / (w.sum() * target.shape[1])
 
     @torch.no_grad()
-    def ddim_sample(self, binned, n_steps=50, generator=None, clip=1.5):
+    def ddim_sample(self, binned, n_steps=DEFAULT_SAMPLE_STEPS, generator=None, clip=1.5):
         """Deterministic DDIM (eta = 0). binned (B, 32, H, W) -> normalised x0 (B, 2, H, W)."""
         B, _, H, W = binned.shape
         features = self.encoder(binned)                  # computed once, reused at every step
@@ -240,7 +244,7 @@ class DiffFLIM(nn.Module):
         return x
 
     @torch.no_grad()
-    def sample(self, counts, n_samples=10, steps=50, seed=None, batch=None):
+    def sample(self, counts, n_samples=10, steps=DEFAULT_SAMPLE_STEPS, seed=None, batch=None):
         """counts (256, H, W) numpy/torch -> samples (n_samples, 2, H, W) numpy, physical units:
         channel 0 = tau (ns), channel 1 = intensity (signal photons)."""
         device = self.alphas_cumprod.device

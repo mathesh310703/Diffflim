@@ -171,7 +171,7 @@ def main():
     ap.add_argument("--tag", default="v1")
     ap.add_argument("--n-images", type=int, default=8)
     ap.add_argument("--n-samples", type=int, default=10)
-    ap.add_argument("--steps", type=int, default=50)
+    ap.add_argument("--steps", type=int, default=10, help="DDIM steps (default 10 since 2026-11-22; 50 before)")
     ap.add_argument("--test-set", default=None, help="folder with test_p*.npz (default: v2 test set)")
     args = ap.parse_args()
 
