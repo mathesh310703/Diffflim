@@ -45,17 +45,36 @@ def _otsu_threshold(values, n_bins=128):
     return centers[np.argmax(w0 * w1 * (m0 - m1) ** 2)]
 
 
-def estimate_photon_level(counts_sum, smooth=1.5):
+PHOTON_ESTIMATORS = ("otsu_log", "otsu_adaptive")
+
+
+def estimate_photon_level(counts_sum, smooth=1.5, method="otsu_log"):
     """Mean photons per foreground pixel, estimated from the summed counts (H, W) alone.
 
-    Foreground = Otsu threshold on log1p of the smoothed photon image; the level is the mean raw
-    count inside it (includes the small background, ~2% in the v1 simulator).
+    method="otsu_log" (used up to DiffFLIM v2's first calibration): foreground = Otsu threshold on
+        log1p of the photon image smoothed with sigma `smooth`; on simulator v3 it is more than 20 %
+        too low for ~14 % of images, because smoothing blurs small or thin structures and the
+        threshold then falls inside the background.
+    method="otsu_adaptive" (2026-11-22): Otsu threshold on the LINEAR photon image, smoothed only as
+        much as the noise needs: sigma 1.0 if the 99th percentile of the summed counts is below 30,
+        0.5 below 300, no smoothing above. Chosen on the v3 calibration set (5 % of images outside
+        +-20 %, against 14 % for otsu_log).
+    The level is the mean raw count inside the foreground (includes the small background).
     """
-    smoothed = gaussian_filter(np.asarray(counts_sum, dtype=np.float64), smooth)
-    fg = np.log1p(smoothed) > _otsu_threshold(np.log1p(smoothed).ravel())
+    s = np.asarray(counts_sum, dtype=np.float64)
+    if method == "otsu_log":
+        smoothed = gaussian_filter(s, smooth)
+        fg = np.log1p(smoothed) > _otsu_threshold(np.log1p(smoothed).ravel())
+    elif method == "otsu_adaptive":
+        p99 = np.percentile(s, 99)
+        sigma = 1.0 if p99 < 30 else (0.5 if p99 < 300 else 0.0)
+        smoothed = gaussian_filter(s, sigma) if sigma else s
+        fg = smoothed > _otsu_threshold(smoothed.ravel())
+    else:
+        raise ValueError(method)
     if not fg.any():
-        return float(np.mean(counts_sum))
-    return float(np.mean(np.asarray(counts_sum)[fg]))
+        return float(np.mean(s))
+    return float(np.mean(s[fg]))
 
 
 # ----------------------------------------------------------------------------------------

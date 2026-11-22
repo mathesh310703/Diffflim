@@ -18,6 +18,15 @@ Outputs
   results/figures/calibration_{tag}.png            promised vs observed coverage (pooled)
   results/figures/calibration_{tag}_vs_photons.png coverage vs photon level (with bootstrap CIs)
 
+Several calibration folders can be pooled (--calib-dir a,b). Predictions are cached per folder:
+data/processed/preds_{preds_tag}_calib.npz for sim_calib / sim_v3_calib (as before) and
+preds_{preds_tag}_calib_{folder name}.npz for any other folder. --photon-estimator chooses the
+photon-level estimate used by the per-level factors (src/evaluation/calibration.py); it is
+recomputed from the counts, so cached model predictions are reused. Example (v2, pooled cells):
+  python scripts/calibrate_diffflim.py --ckpt checkpoints/diffflim_v2.pt --tag v2_extra --preds-tag v2
+      --smooth --photon-estimator otsu_adaptive --test-set data/raw/own/sim_v3_test
+      --calib-dir data/raw/own/sim_v3_calib,data/raw/own/sim_v3_calib_extra
+
 Usage:
   python scripts/calibrate_diffflim.py                                   # v1 model, v2 simulator
   python scripts/calibrate_diffflim.py --ckpt checkpoints/diffflim_v2.pt --tag v2 --smooth \
@@ -54,6 +63,28 @@ def make_v2_calib_set(out_dir, n_per_level):
         if not path.exists():
             save_dataset(path, generate_dataset(n_per_level, lev, seed=CALIB_SEED + lev))
             print(f"Saved {path}")
+
+
+def calib_cache_key(folder):
+    """Cache name of a calibration folder (the two original folders keep their old name)."""
+    return "calib" if folder.name in ("sim_calib", "sim_v3_calib") else f"calib_{folder.name}"
+
+
+def recompute_photons_est(rec, files, n_images, method):
+    """Replace rec["photons_est"] by the estimate of `method`, from the counts in `files` (same
+    image order as predict_split)."""
+    est = []
+    for path in files:
+        d = load_dataset(path)
+        n = min(n_images or len(d["counts"]), len(d["counts"]))
+        est += [cal.estimate_photon_level(d["counts"][i].sum(0), method=method) for i in range(n)]
+    assert len(est) == len(rec["photons"]), "cached predictions do not match the data files"
+    rec["photons_est"] = np.array(est)
+    return rec
+
+
+def concat_records(recs):
+    return {k: np.concatenate([r[k] for r in recs]) for k in recs[0]}
 
 
 def predict_split(model, files, n_images, n_samples, seed0):
@@ -117,7 +148,9 @@ def main():
     ap.add_argument("--ckpt", default=str(CHECKPOINTS / "diffflim_v1.pt"))
     ap.add_argument("--tag", default="v1")
     ap.add_argument("--test-set", default=None, help="folder with test_p*.npz (default: v2 test set)")
-    ap.add_argument("--calib-dir", default=str(RAW_OWN / "sim_calib"))
+    ap.add_argument("--calib-dir", default=str(RAW_OWN / "sim_calib"), help="one folder or several, comma-separated")
+    ap.add_argument("--preds-tag", default=None, help="tag of the prediction caches (default: --tag)")
+    ap.add_argument("--photon-estimator", default="otsu_log", choices=cal.PHOTON_ESTIMATORS)
     ap.add_argument("--calib-per-level", type=int, default=20, help="only used to create a v2 calibration set")
     ap.add_argument("--n-test", type=int, default=0, help="test images per level (0 = all)")
     ap.add_argument("--n-calib", type=int, default=0, help="calibration images per level (0 = all)")
@@ -126,15 +159,16 @@ def main():
     ap.add_argument("--recompute", action="store_true")
     args = ap.parse_args()
 
-    calib_dir = Path(args.calib_dir)
-    if calib_dir == RAW_OWN / "sim_calib":
-        make_v2_calib_set(calib_dir, args.calib_per_level)
+    calib_dirs = [Path(c) for c in args.calib_dir.split(",")]
+    if calib_dirs == [RAW_OWN / "sim_calib"]:
+        make_v2_calib_set(calib_dirs[0], args.calib_per_level)
     order = lambda p: int(p.stem.split("_p")[1])  # noqa: E731
-    calib_files = sorted(calib_dir.glob("calib_p*.npz"), key=order)
+    calib_files = {c: sorted(c.glob("calib_p*.npz"), key=order) for c in calib_dirs}
     test_dir = Path(args.test_set) if args.test_set else test_set_dir()
     test_files = sorted(test_dir.glob("test_p*.npz"), key=order)
-    if not calib_files or not test_files:
-        sys.exit(f"Missing calibration ({calib_dir}) or test ({test_dir}) files.")
+    if not all(calib_files.values()) or not test_files:
+        sys.exit(f"Missing calibration ({calib_dirs}) or test ({test_dir}) files.")
+    ptag = args.preds_tag or args.tag
 
     def model_fn():
         from src.models.diffflim import load_model
@@ -142,16 +176,28 @@ def main():
         print(f"Loaded {args.ckpt} (step {ckpt['step']})")
         return model
 
-    print("Predicting calibration set")
-    calib = load_or_predict(PROCESSED / f"preds_{args.tag}_calib.npz", model_fn, calib_files,
-                            args.n_calib, args.n_samples, 5000, args.recompute)
+    recs = []
+    for k, (c, files) in enumerate(calib_files.items()):
+        print(f"Predicting calibration set {c}")
+        key = calib_cache_key(c)
+        rec = load_or_predict(PROCESSED / f"preds_{ptag}_{key}.npz", model_fn, files,
+                              args.n_calib, args.n_samples, 5000 if key == "calib" else 7000, args.recompute)
+        if args.photon_estimator != "otsu_log":
+            rec = recompute_photons_est(rec, files, args.n_calib, args.photon_estimator)
+        print(f"  {len(rec['photons'])} images")
+        recs.append(rec)
+    calib = concat_records(recs)
     print("Predicting test set")
-    test = load_or_predict(PROCESSED / f"preds_{args.tag}_test.npz", model_fn, test_files,
+    test = load_or_predict(PROCESSED / f"preds_{ptag}_test.npz", model_fn, test_files,
                            args.n_test, args.n_samples, 1000, args.recompute)
+    if args.photon_estimator != "otsu_log":
+        test = recompute_photons_est(test, test_files, args.n_test, args.photon_estimator)
 
-    ratio = test["photons_est"] / test["photons"]
-    print(f"Photon-level estimate / true level on test: median {np.median(ratio):.3f}, "
-          f"range {ratio.min():.2f}-{ratio.max():.2f}")
+    for name, rec in [("calibration", calib), ("test", test)]:
+        ratio = rec["photons_est"] / rec["photons"]
+        print(f"Photon-level estimate ({args.photon_estimator}) / true level on {name}: median {np.median(ratio):.3f}, "
+              f"range {ratio.min():.2f}-{ratio.max():.2f}, below 0.8: {np.mean(ratio < 0.8):.1%}, "
+              f"above 1.25: {np.mean(ratio > 1.25):.1%}")
 
     fitted = cal.fit(calib, ALPHAS, smooth=args.smooth)
 

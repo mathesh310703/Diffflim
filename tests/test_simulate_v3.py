@@ -99,9 +99,14 @@ def test_reproducible():
 def test_split_disjoint_and_fixed():
     before = (v3.TEST_IDS_FILE.read_text(), v3.CALIB_IDS_FILE.read_text() if v3.CALIB_IDS_FILE.exists() else None)
     te, ca, tr = v3.test_ids(), v3.calib_ids(), v3.train_ids(write=False)
+    ex = v3.calib_extra_v2_ids() if v3.CALIB_EXTRA_V2_FILE.exists() else []
     assert len(te) == v3.N_TEST_IDS and len(ca) == v3.N_CALIB_IDS
     assert not set(te) & set(tr) and not set(ca) & set(tr) and not set(te) & set(ca)
-    assert set(tr) == set(v3.complete_ids()) - set(te) - set(ca)   # every other complete sample trains
+    assert not set(ex) & (set(te) | set(ca) | set(tr))            # extra calibration cells held out
+    if v3.TRAIN_IDS_V2_FILE.exists():
+        assert not set(ex) & set(v3.diffflim_v2_train_ids())       # ... and unseen by DiffFLIM v2
+    assert set(tr) == set(v3.complete_ids()) - set(te) - set(ca) - set(ex)   # every other complete sample trains
+    assert set(v3.train_ids(write=False, allow_calib_extra=True)) == set(tr) | set(ex)
     assert v3.TEST_IDS_FILE.read_text() == before[0]               # never rewritten
     if before[1] is not None:
         assert v3.CALIB_IDS_FILE.read_text() == before[1]

@@ -75,6 +75,12 @@ IRF_DIR = ROOT / "external" / "FLIMngo" / "data_simulation" / "data" / "irfs"
 TEST_IDS_FILE = SPLITS / "hpa_test.txt"
 TRAIN_IDS_FILE = SPLITS / "hpa_train.txt"
 CALIB_IDS_FILE = SPLITS / "hpa_calib.txt"
+# Frozen record of the 246 IDs DiffFLIM v2 was trained on (copy of hpa_train.txt as written at the
+# start of its run, 2026-11-21 21:31), and the complete samples downloaded later that v2 never saw.
+# The latter are used as EXTRA CALIBRATION cells and are excluded from train_ids() by default;
+# a future model may only train on them if this is stated in the project log.
+TRAIN_IDS_V2_FILE = SPLITS / "hpa_train_diffflim_v2.txt"
+CALIB_EXTRA_V2_FILE = SPLITS / "hpa_calib_extra_v2.txt"
 N_TEST_IDS = 30
 N_CALIB_IDS = 20
 SPLIT_SEED = 2026
@@ -83,6 +89,7 @@ CALIB_SEED = 2027
 TEST_PHOTON_LEVELS = (10, 20, 50, 100, 500, 1000)
 TEST_SEED = 31000        # scenes of the paired test set (noise: TEST_SEED + level)
 CALIB_SET_SEED = 41000   # scenes of the paired calibration set (noise: CALIB_SET_SEED + level)
+CALIB_EXTRA_SET_SEED = 51000   # scenes of the extra paired calibration set (unseen-by-v2 cells)
 
 # (id, source, parameters, laser jitter (early, late) in bins) -- FLIMngo notebook 2
 IRF_LIBRARY = (
@@ -189,10 +196,38 @@ def calib_ids(hpa_dir=HPA_DIR):
     return chosen
 
 
-def train_ids(hpa_dir=HPA_DIR, write=True):
-    """All complete samples that are neither test nor calibration samples, computed now (new
-    downloads are added to training automatically). Written to data/splits/hpa_train.txt."""
-    held_out = set(test_ids(hpa_dir)) | set(calib_ids(hpa_dir))
+def diffflim_v2_train_ids():
+    """The 246 training IDs DiffFLIM v2 was trained on (frozen record, never rewritten)."""
+    return _read_ids(TRAIN_IDS_V2_FILE)
+
+
+def calib_extra_v2_ids(hpa_dir=HPA_DIR):
+    """Complete samples that DiffFLIM v2 never saw (not in its training list) and that are neither
+    test nor calibration IDs. Created once from the samples complete at that moment, written to
+    data/splits/hpa_calib_extra_v2.txt and never rewritten."""
+    if CALIB_EXTRA_V2_FILE.exists():
+        return _read_ids(CALIB_EXTRA_V2_FILE)
+    excluded = set(diffflim_v2_train_ids()) | set(test_ids(hpa_dir)) | set(calib_ids(hpa_dir))
+    ids = [i for i in complete_ids(hpa_dir) if i not in excluded]
+    CALIB_EXTRA_V2_FILE.write_text("\n".join(ids) + "\n")
+    return ids
+
+
+def held_out_ids(hpa_dir=HPA_DIR, include_calib_extra=True):
+    """IDs that training must not use: test, calibration and (if it exists) extra calibration."""
+    held = set(test_ids(hpa_dir)) | set(calib_ids(hpa_dir))
+    if include_calib_extra and CALIB_EXTRA_V2_FILE.exists():
+        held |= set(_read_ids(CALIB_EXTRA_V2_FILE))
+    return held
+
+
+def train_ids(hpa_dir=HPA_DIR, write=True, allow_calib_extra=False):
+    """All complete samples that are neither test, calibration nor extra-calibration samples,
+    computed now (new downloads are added to training automatically). Written to
+    data/splits/hpa_train.txt. allow_calib_extra=True also returns the extra calibration cells;
+    only use it deliberately and note it in the project log (the extra calibration set then
+    stops being unseen data)."""
+    held_out = held_out_ids(hpa_dir, include_calib_extra=not allow_calib_extra)
     ids = [i for i in complete_ids(hpa_dir) if i not in held_out]
     if write:
         TRAIN_IDS_FILE.write_text("\n".join(ids) + "\n")
@@ -418,12 +453,13 @@ def simulate_sample(rng, cfg, photons, ids, hpa_dir=HPA_DIR, return_extra=False)
     return render_scene(make_scene(rng, cfg, ids, hpa_dir), cfg, photons, rng, return_extra)
 
 
-def training_samples(cfg=None, photon_range=(10, 1000), seed=None, ids=None, hpa_dir=HPA_DIR):
+def training_samples(cfg=None, photon_range=(10, 1000), seed=None, ids=None, hpa_dir=HPA_DIR,
+                     allow_calib_extra=False):
     """Endless generator of training samples from TRAIN IDs only (log-uniform photon level)."""
     cfg = SimConfigV3() if cfg is None else cfg
-    ids = train_ids(hpa_dir, write=False) if ids is None else list(ids)
-    if set(ids) & (set(test_ids(hpa_dir)) | set(calib_ids(hpa_dir))):
-        raise ValueError("Training IDs overlap with the fixed HPA test or calibration IDs.")
+    ids = train_ids(hpa_dir, write=False, allow_calib_extra=allow_calib_extra) if ids is None else list(ids)
+    if set(ids) & held_out_ids(hpa_dir, include_calib_extra=not allow_calib_extra):
+        raise ValueError("Training IDs overlap with the fixed HPA test or (extra) calibration IDs.")
     rng = np.random.default_rng(seed)
     lo, hi = photon_range
     while True:
@@ -504,6 +540,17 @@ def make_test_set(out_dir=None, levels=TEST_PHOTON_LEVELS, n_per_level=40, seed=
     the same 40 scenes (scene seed TEST_SEED); the noise uses TEST_SEED + level."""
     return _make_paired_set(test_set_dir() if out_dir is None else out_dir, "test", test_ids(), "test",
                             levels, n_per_level, seed, force)
+
+
+def calib_extra_set_dir():
+    return RAW_OWN / "sim_v3_calib_extra"
+
+
+def make_calib_extra_set(out_dir=None, levels=TEST_PHOTON_LEVELS, n_per_level=100, seed=CALIB_EXTRA_SET_SEED,
+                         force=False):
+    """Extra PAIRED calibration set from the cells DiffFLIM v2 never saw: calib_p{level}.npz."""
+    return _make_paired_set(calib_extra_set_dir() if out_dir is None else out_dir, "calib", calib_extra_v2_ids(),
+                            "calib_extra_v2", levels, n_per_level, seed, force)
 
 
 def make_calib_set(out_dir=None, levels=TEST_PHOTON_LEVELS, n_per_level=100, seed=CALIB_SET_SEED, force=False):

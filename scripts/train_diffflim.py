@@ -95,6 +95,7 @@ def main():
     if args.simulator == "v3":
         from src.data import simulate_v3 as v3
         ids = v3.train_ids()                    # computed once; excludes test and calibration IDs
+        args.train_ids = list(ids)              # stored in every checkpoint (vars(args)) as the record
         print(f"Simulator v3: {len(ids)} training IDs (test {len(v3.test_ids())}, calibration {len(v3.calib_ids())})")
     stream = SimStream(seed=args.seed, simulator=args.simulator, ids=ids, tau_range=tau_range)
     loader = DataLoader(stream, batch_size=args.batch, num_workers=args.workers,
