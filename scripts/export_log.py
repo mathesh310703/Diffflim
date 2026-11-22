@@ -3,9 +3,16 @@
 Tables and the figures referenced in the log (relative paths, as in the Markdown file) are
 included. Uses `markdown` and `xhtml2pdf` (pure Python, pip-installable on Windows).
 
+Other Markdown documents (e.g. docs/TECHNICAL_REPORT.md) can be exported with the same layout by
+passing the file and, optionally, a title, a subtitle, a table of contents (--toc) and a page
+break before every second-level section (--h2-pagebreak). Without arguments the behaviour is
+unchanged.
+
 Usage:
     python scripts/export_log.py
+    python scripts/export_log.py docs/TECHNICAL_REPORT.md --title "..." --subtitle "..." --toc --h2-pagebreak
 """
+import argparse
 import datetime
 import re
 import sys
@@ -20,6 +27,8 @@ SRC = ROOT / "docs" / "PROJECT_LOG.md"
 OUT = ROOT / "docs" / "PROJECT_LOG.pdf"
 
 TITLE = "DiffFLIM – Project Log"
+SUBTITLE = ("Conditional diffusion for fluorescence lifetime and intensity estimation from low-photon "
+            "TCSPC data, with calibrated per-pixel uncertainty")
 AUTHOR = "Matheshwaran Prakash"
 AFFILIATION = "Otto-von-Guericke-Universität Magdeburg"
 
@@ -79,7 +88,7 @@ def size_images(html):
     return re.sub(r"<img([^>]*)/?>", repl, html)
 
 
-def build_html(md_text):
+def build_html(md_text, title=TITLE, subtitle=None, toc=False, h2_pagebreak=False):
     # Drop the Markdown H1; the title page carries the title.
     md_text = re.sub(r"\A#\s+.*\n", "", md_text.lstrip())
     # Markdown needs a blank line before a list; the log writes lists directly under "Changes:".
@@ -92,8 +101,11 @@ def build_html(md_text):
     body = re.sub(r"<p>\s*(<div class=\"figure\">.*?</div>(?:<div class=\"caption\">.*?</div>)?</div>)\s*</p>",
                   r"\1", body, flags=re.S)
     # Every "Log" entry (h3) except the first starts on a new page for readability.
-    body = body.replace("<h2>Decisions</h2>", "<pdf:nextpage /><h2>Decisions</h2>")
-    body = body.replace("<h2>Log</h2>", "<pdf:nextpage /><h2>Log</h2>")
+    if h2_pagebreak:
+        body = re.sub(r"<h2>", "<pdf:nextpage /><h2>", body)
+    else:
+        body = body.replace("<h2>Decisions</h2>", "<pdf:nextpage /><h2>Decisions</h2>")
+        body = body.replace("<h2>Log</h2>", "<pdf:nextpage /><h2>Log</h2>")
     # Bold the template field names at the start of a paragraph ("Goal:", "Results:", ...).
     body = re.sub(r"<p>(Goal|Changes|Settings|Results|Compared to before|Problems and fixes|Next):",
                   r'<p><span class="field">\1:</span>', body)
@@ -121,6 +133,13 @@ def build_html(md_text):
     ul {{ margin-top: 0; margin-bottom: 6pt; }}
     li {{ margin-bottom: 2pt; }}
     code {{ font-family: Courier; font-size: 9pt; }}
+    pre {{ font-family: Courier; font-size: 7.5pt; line-height: 1.2; background-color: #f3f5f8;
+           border: 0.5pt solid #c8d0da; padding: 4pt 5pt 4pt 5pt; margin: 2pt 0 8pt 0; }}
+    pre code {{ font-size: 7.5pt; }}
+    h4 {{ font-size: 10.5pt; color: #1f3a5f; margin-top: 10pt; margin-bottom: 3pt; }}
+    pdftoc {{ color: #222222; }}
+    pdftoc.pdftoclevel0 {{ font-weight: bold; margin-top: 4pt; font-size: 10pt; }}
+    pdftoc.pdftoclevel1 {{ margin-left: 1.0em; font-size: 9pt; }}
     table {{ border: 0.5pt solid #999999; margin: 4pt 0 8pt 0; }}
     th {{ background-color: #e8edf3; font-weight: bold; font-size: 8.5pt;
           padding: 3pt 4pt 2pt 4pt; border: 0.5pt solid #999999; text-align: center; }}
@@ -134,28 +153,42 @@ def build_html(md_text):
     title_page = f"""
     <div class="title">
       <p style="font-size:1pt;">&nbsp;</p>
-      <p style="margin-top:6cm; font-size:26pt; font-weight:bold; color:#1f3a5f;">{TITLE}</p>
-      <p style="margin-top:0.8cm; font-size:12pt;">Conditional diffusion for fluorescence lifetime and
-         intensity estimation from low-photon TCSPC data, with calibrated per-pixel uncertainty</p>
+      <p style="margin-top:6cm; font-size:{26 if len(title) < 40 else 20}pt; font-weight:bold; color:#1f3a5f;">{title}</p>
+      <p style="margin-top:0.8cm; font-size:12pt;">{subtitle or SUBTITLE}</p>
       <p style="margin-top:2.5cm; font-size:14pt;">{AUTHOR}</p>
       <p style="font-size:12pt;">{AFFILIATION}</p>
-      <p style="margin-top:1.5cm; font-size:10pt; color:#666666;">Exported {date} from docs/PROJECT_LOG.md</p>
+      <p style="margin-top:1.5cm; font-size:10pt; color:#666666;">Exported {date} from {SRC.relative_to(ROOT).as_posix()}</p>
     </div>
     <pdf:nexttemplate name="content" />
     <pdf:nextpage />
     """
-    footer = f'<div id="footer">{TITLE} &nbsp;·&nbsp; page <pdf:pagenumber></pdf:pagenumber> of <pdf:pagecount></pdf:pagecount></div>'
+    if toc:
+        title_page += ('<p style="font-size:15pt; font-weight:bold; color:#1f3a5f; margin-bottom:8pt;">Contents</p>'
+                       '<pdf:toc />')
+    short = title.split(":")[0]
+    footer = f'<div id="footer">{short} &nbsp;·&nbsp; page <pdf:pagenumber></pdf:pagenumber> of <pdf:pagecount></pdf:pagecount></div>'
     return f"""<html><head><meta charset="utf-8"><style>{css}</style></head>
     <body>{footer}{title_page}{body}</body></html>"""
 
 
 def main():
-    html = build_html(SRC.read_text(encoding="utf-8"))
-    with open(OUT, "wb") as f:
+    global SRC
+    ap = argparse.ArgumentParser()
+    ap.add_argument("source", nargs="?", default=str(SRC), help="Markdown file (default: docs/PROJECT_LOG.md)")
+    ap.add_argument("--out", default=None, help="PDF file (default: same name as the source, .pdf)")
+    ap.add_argument("--title", default=TITLE)
+    ap.add_argument("--subtitle", default=None)
+    ap.add_argument("--toc", action="store_true", help="table of contents after the title page")
+    ap.add_argument("--h2-pagebreak", action="store_true", help="start every '##' section on a new page")
+    args = ap.parse_args()
+    SRC = Path(args.source).resolve()
+    out = Path(args.out).resolve() if args.out else SRC.with_suffix(".pdf")
+    html = build_html(SRC.read_text(encoding="utf-8"), args.title, args.subtitle, args.toc, args.h2_pagebreak)
+    with open(out, "wb") as f:
         result = pisa.CreatePDF(html, dest=f, encoding="utf-8")
     if result.err:
         sys.exit(f"PDF export failed with {result.err} error(s).")
-    print(f"Saved {OUT.relative_to(ROOT)} ({OUT.stat().st_size / 1e6:.1f} MB)")
+    print(f"Saved {out.relative_to(ROOT)} ({out.stat().st_size / 1e6:.1f} MB)")
 
 
 if __name__ == "__main__":

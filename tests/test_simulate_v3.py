@@ -100,18 +100,49 @@ def test_split_disjoint_and_fixed():
     before = (v3.TEST_IDS_FILE.read_text(), v3.CALIB_IDS_FILE.read_text() if v3.CALIB_IDS_FILE.exists() else None)
     te, ca, tr = v3.test_ids(), v3.calib_ids(), v3.train_ids(write=False)
     ex = v3.calib_extra_v2_ids() if v3.CALIB_EXTRA_V2_FILE.exists() else []
+    t2 = v3.test2_ids() if v3.TEST2_IDS_FILE.exists() else []
     assert len(te) == v3.N_TEST_IDS and len(ca) == v3.N_CALIB_IDS
     assert not set(te) & set(tr) and not set(ca) & set(tr) and not set(te) & set(ca)
     assert not set(ex) & (set(te) | set(ca) | set(tr))            # extra calibration cells held out
     if v3.TRAIN_IDS_V2_FILE.exists():
         assert not set(ex) & set(v3.diffflim_v2_train_ids())       # ... and unseen by DiffFLIM v2
-    assert set(tr) == set(v3.complete_ids()) - set(te) - set(ca) - set(ex)   # every other complete sample trains
+    assert not set(t2) & (set(te) | set(ca) | set(ex) | set(tr))  # second test set held out
+    assert set(tr) == set(v3.complete_ids()) - set(te) - set(ca) - set(ex) - set(t2)  # all other samples train
     assert set(v3.train_ids(write=False, allow_calib_extra=True)) == set(tr) | set(ex)
+    assert not set(t2) & set(v3.train_ids(write=False, allow_calib_extra=True))   # never, even then
     assert v3.TEST_IDS_FILE.read_text() == before[0]               # never rewritten
     if before[1] is not None:
         assert v3.CALIB_IDS_FILE.read_text() == before[1]
     gen = v3.training_samples(seed=0)
     assert all(next(gen)["hpa_id"] in set(tr) for _ in range(20))
+
+
+def test_second_test_set():
+    """hpa_test2.txt: 100 fixed IDs, none of them ever used before (not in the DiffFLIM v2 training
+    list, test, calibration or extra calibration), held out from training; the paired set
+    data/raw/own/sim_v3_test2/ uses exactly these IDs, each once per level."""
+    before = v3.TEST2_IDS_FILE.read_text()
+    t2 = v3.test2_ids()
+    assert len(t2) == v3.N_TEST2_IDS == len(set(t2))
+    earlier = (set(v3.diffflim_v2_train_ids()) | set(v3.test_ids()) | set(v3.calib_ids())
+               | set(v3.calib_extra_v2_ids()))
+    assert not set(t2) & earlier and set(t2) <= set(v3.complete_ids())
+    assert set(t2) <= v3.held_out_ids() and set(t2) <= v3.held_out_ids(include_calib_extra=False)
+    assert v3.TEST2_IDS_FILE.read_text() == before                  # never rewritten
+    path = v3.test2_set_dir() / "test_p10.npz"
+    if path.exists():
+        with np.load(path) as f:
+            ids = [str(x) for x in f["hpa_id"]]
+        assert sorted(ids) == sorted(t2)                            # 100 images, every ID once
+
+
+def test_train_ids_has_no_side_effect():
+    """Computing the training IDs (as `python -m src.data.simulate_v3` does) writes nothing."""
+    f = v3.TRAIN_IDS_FILE
+    before = (f.read_text(), f.stat().st_mtime_ns) if f.exists() else None
+    v3.train_ids()
+    after = (f.read_text(), f.stat().st_mtime_ns) if f.exists() else None
+    assert before == after
 
 
 def test_paired_levels():

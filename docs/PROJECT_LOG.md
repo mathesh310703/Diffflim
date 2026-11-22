@@ -4,7 +4,7 @@
 
 *Last updated: 2026-11-22*
 
-The project has two simulators. Simulator v2 (`src/data/simulate.py`) produces smooth blob-shaped cells with a Gaussian IRF and was used to train DiffFLIM v1. Simulator v3 (`src/data/simulate_v3.py`) follows the FLIMngo simulation (Human Protein Atlas (HPA) crops, up to four lifetime components per pixel, Perlin-noise amplitudes, twelve IRFs with laser jitter) but with real photon counts. The 350 complete HPA samples are split into 30 fixed test IDs, 20 fixed calibration IDs, 54 extra calibration IDs that DiffFLIM v2 never saw, and 246 training IDs (the exact list DiffFLIM v2 was trained on). The v3 test set (40 images per level) and both v3 calibration sets (100 images per level each) are paired across photon levels.
+The project has two simulators. Simulator v2 (`src/data/simulate.py`) produces smooth blob-shaped cells with a Gaussian IRF and was used to train DiffFLIM v1. Simulator v3 (`src/data/simulate_v3.py`) follows the FLIMngo simulation (Human Protein Atlas (HPA) crops, up to four lifetime components per pixel, Perlin-noise amplitudes, twelve IRFs with laser jitter) but with real photon counts. Of the 566 complete Human Protein Atlas samples, 30 are fixed test IDs, 100 are a second fixed test set reserved for the final evaluation (nothing has been evaluated on it), 20 are fixed calibration IDs and 54 extra calibration IDs that DiffFLIM v2 never saw; the remaining 362 are training IDs, of which 246 were used by DiffFLIM v2 and the retrained FLIMngo. The v3 test set (40 images per level), both v3 calibration sets (100 images per level each) and the second test set (100 images per level) are paired across photon levels.
 
 DiffFLIM v2 (v1 architecture, trained on v3 data) is the most accurate lifetime estimator on the v3 test set at every photon level. In the main comparison every method gets the same information: FLIMngo uses a background mask computed from the counts (`flimngo_recall`, 98 to 100 % of the true foreground on the test set), DiffFLIM and the MLE get no mask. DiffFLIM is evaluated with 10 DDIM steps and 10 samples (0.11 s per image), which gives the same error and coverage as 50 steps. Lifetime error (median absolute relative error, all foreground pixels, 40 images per level):
 
@@ -18,14 +18,19 @@ The strongest deterministic baseline is the pretrained FLIMngo. The FLIMngo arch
 
 The uncalibrated DiffFLIM v2 intervals are too narrow. Calibrated on all 74 calibration cells with per-level factors, the pooled coverage of the 90 % interval with 10 DDIM steps is 90.0 % for the lifetime (95 % interval over test cells [88.5, 91.6] %) and 87.6 % for the intensity ([84.7, 90.4] %); at 68 % it is 68.3 % and 65.0 %. At the level of cells all values are consistent with nominal. Per photon level only the per-level factors are close to nominal; a single global factor over-covers at 500 and 1000 photons and under-covers the intensity at low photon levels, more so with 10 than with 50 steps.
 
+First real data: on FLIMngo's 12 raw *C. elegans* recordings (1 s, 10 to 49 photons per worm pixel, no ground truth), every method finds the shorter lifetime of Aβ-mScarlet than of mScarlet reported by FLIMngo (Mann–Whitney p = 0.0022 to 0.0087, 6 versus 6 recordings). DiffFLIM v2 is as consistent between two independent photon halves of a recording as the 5 × 5 binned MLE (3.4 against 3.5 % median difference; FLIMngo 4.6 %, MLE 16.4 %), but its group difference is smaller (0.35 against 0.50 to 0.53 ns). The real recordings differ from the training data in photon range (many pixels below 10 photons), image size (tiling), background structure (empty first bins, signal-proportional offset) and content (moving worms). The protocol is fixed in `scripts/eval_real_celegans.py`.
+
 Open problems:
 
+- The calibration of DiffFLIM cannot be checked on the *C. elegans* data (no ground truth); a real sample with a known lifetime is needed.
 - The retrained FLIMngo would need a second training run with weight averaging or learning-rate decay and a larger validation set to remove its offset; this has not been done.
 - The recall-oriented FLIMngo mask relies on the clean foreground/background separation of the v3 data and is untested on real data.
 - The v3 ground truth contains per-pixel lifetime jitter (median 4.4 % of τ on the foreground), close to the DiffFLIM v2 error at 1000 photons; the predicted mean maps are smooth.
 - The mono-exponential baselines follow the intensity-weighted rather than the amplitude-weighted lifetime; no multi-exponential baseline exists. There is no U-Net baseline and no real data yet.
 
-Next steps: write the technical report, test DiffFLIM v2 (10 DDIM steps, 10 samples) and both FLIMngo models on real `.sdt` data, and add a U-Net trained on the same v3 data.
+A technical report that explains the system, every code file and every result file is available in `docs/TECHNICAL_REPORT.md` and `docs/TECHNICAL_REPORT.pdf`; `results/README.md` describes every figure and table.
+
+Next steps: evaluate all methods under FLIMngo's protocol on simulated data, test the methods on a real sample with a known lifetime (FLUTE fluorescein, thinned), retrain FLIMngo once with weight averaging, and keep the second test set untouched until the final evaluation.
 
 ## Decisions
 
@@ -58,6 +63,10 @@ Next steps: write the technical report, test DiffFLIM v2 (10 DDIM steps, 10 samp
 **All methods get the same information: a mask computed from the counts.** From the entry "FLIMngo retrained on v3, cell-level coverage intervals and DiffFLIM v2 speed trade-off" on, FLIMngo (pretrained and retrained) gets the background mask `foreground_mask(counts.sum(0), "otsu_adaptive")` from `src/evaluation/calibration.py`, in training and at evaluation, because the true mask is not available for real data and DiffFLIM does not get it either. The ground-truth-mask results are kept as an upper bound for FLIMngo. The retrained FLIMngo uses the same 246 training IDs, the same photon range and the same training time as the 3-hour DiffFLIM v2 checkpoint. Update (entry "Recall-oriented mask for FLIMngo, ..."): the mask for FLIMngo's input in the main comparison is now `foreground_mask(..., "flimngo_recall")` (summed counts above 0.2 × their 99th percentile), chosen on the calibration sets for at least 95 % recall; `otsu_adaptive` was tuned for the photon estimate and dropped 19 to 26 % of the foreground. It is still computed from the counts alone. The retrained FLIMngo was trained with `otsu_adaptive`; both masks are reported.
 
 **10 DDIM steps with 10 samples as the default for DiffFLIM.** From the entry "Recall-oriented mask for FLIMngo, bias of the retrained FLIMngo, 10 DDIM steps as default" on, DiffFLIM is evaluated and calibrated with 10 DDIM steps and 10 samples (`DEFAULT_SAMPLE_STEPS` in `src/models/diffflim.py`, `--steps` in the evaluation and calibration scripts; `--steps 50` reproduces the earlier results). On the full v3 test set, 10 steps gave the same or a slightly lower error than 50 steps, the same calibrated coverage and the same interval width, at 0.11 instead of 0.52 s per image. The uncalibrated spread of 10-step samples is smaller and depends more on the photon level, so the calibration factors are specific to the number of steps: factors fitted for one setting must not be used for another, and the per-level factors are preferred over the global factor. Results reported before this entry used 50 steps.
+
+**A second test set is reserved for the final evaluation.** On 22 November 2026, 100 of the 216 complete HPA samples that no model, calibration or data set had used were fixed as a second test set (`data/splits/hpa_test2.txt`, seed 2028, never rewritten) and a paired test set with 100 images per level was built from them (`data/raw/own/sim_v3_test2/`). They are excluded from training and calibration forever (`held_out_ids()` always contains them). Nothing is evaluated on this set before the final evaluation, so that the final numbers come from cells that influenced no design decision; result files made from it carry the tag `test2`. The other 116 unused samples became training IDs. `train_ids()` no longer writes `data/splits/hpa_train.txt` unless called with `write=True` at the start of a training run.
+
+**Real data are evaluated with a fixed protocol.** The evaluation on FLIMngo's *C. elegans* recordings is defined once in `scripts/eval_real_celegans.py` (mask, background estimate, IRF alignment, tiling, calibration factor, statistics, seeds, example recordings and display ranges) and is not tuned on its results. Later models are evaluated with the same script (`--ckpt`, `--tag`, `--factors`); result files carry the model tag. The split-half fractions of DiffFLIM's intervals are interpreted only against the same analysis on simulated data with known truth, because the halves of one recording share the same truth.
 
 **Coverage uncertainty is reported at the level of cells.** Images of the same HPA cell are not independent (same crop source, and the same scene at every photon level in the paired sets). Confidence intervals for coverage therefore resample test cells (`hpa_id`), and the joint interval also resamples the calibration cells and refits the factors. Image-level bootstrap intervals in earlier entries are about half as wide and too optimistic.
 
@@ -807,3 +816,118 @@ Compared to before: With a mask of 98 to 100 % recall, the pretrained FLIMngo be
 Problems and fixes: The bias figure first ordered the lifetime bins as text, so "0.1-1" appeared last; the grouping was changed to numeric order and the analysis was run again (same numbers). The refactored `scripts/coverage_cell_bootstrap.py` was checked with `--steps 50`: it reproduced `results/tables/coverage_cellboot_v2.csv` byte for byte. The recall mask exploits a property of the simulated data; it was chosen on the calibration sets only, but it is not a test of mask quality on real data. All 30 tests in `tests/` passed after the changes (run directly, `pytest` is not installed).
 
 Next: write the technical report; run DiffFLIM v2 (10 steps) and both FLIMngo models on real `.sdt` data; if a retrained FLIMngo is needed for the paper, retrain it once with weight averaging and a larger validation set as described above.
+
+### 2026-11-22 – Technical report and guide to the result files
+
+Goal: The author needed a document that explains the system, the data and sources, every code file and every result file to a reader without background in FLIM or diffusion models (a professor or a new student), separate from the chronological log.
+
+Changes:
+
+- `docs/TECHNICAL_REPORT.md` and `docs/TECHNICAL_REPORT.pdf` (new): background, system overview, data and sources with licences and citations, a file-by-file walkthrough of `src/`, `scripts/` and `tests/` with code excerpts, all experiments in order, a results summary, a guide to every result file, limitations, reproducibility, next steps and a glossary.
+- `results/README.md` (new): naming scheme and tags, column definitions, and for every one of the 33 figures and 32 tables what it shows, how to read it, which data, model and script, and its status (main result, supporting check or superseded).
+- `scripts/export_log.py` (changed): optional source file, output file, title, subtitle, table of contents (`--toc`) and page break before every top-level section (`--h2-pagebreak`); styles for code blocks. Without arguments the output for the project log is unchanged (41 pages, same title page).
+- `CLAUDE.md` (changed, git-ignored): rule to keep `results/README.md` up to date whenever a result file is added or replaced.
+
+Settings: all numbers in the report's results summary were generated from the CSV files in `results/tables/`, not copied from the log. Export command in Section 10 of the report. No other code, data, model or result was changed.
+
+Results: the report has 61 A4 pages (title page, three pages of contents, eleven sections, glossary and references). Tables, code blocks, the pipeline diagram, figures and page numbers were checked in the rendered PDF.
+
+Compared to before: the project had only the chronological log; the system and the result files were not described in one place.
+
+Problems and fixes: The ceiling brackets of the conformal quantile were not in the PDF font and were written as "ceil(...)" instead. Writing the guide showed three gaps that are recorded in the report: `loss_v2.png` and `training_flimngo_v3.png` were made with inline plotting commands and have no script in the repository; the docstring of `src/models/diffflim.py` and the message of `quick_check` in `scripts/train_diffflim.py` still mention 50 DDIM steps; and `python -m src.data.simulate_v3` rewrites `data/splits/hpa_train.txt` as a side effect. No code was changed to fix them. FLIM_PSR, PET-DEFT, DynamicDPS and Teneggi et al. are named in the project plan but none of their methods is implemented; the report says so and cites only Teneggi et al. in full, because the project files contain no bibliographic details for the other three. All references in the report should be checked against the original publications before they are used in the paper. Since the splits were fixed, 216 further HPA samples have been completed; `train_ids()` now returns 462 IDs, so a new training run would use them automatically unless they are fixed as a test split first.
+
+Next: decide whether the 216 unused HPA samples become a second test split; evaluate all methods under FLIMngo's protocol; real data.
+
+### 2026-11-22 – Second test set, removal of three code gaps, references
+
+Goal: (1) Fix a second test set from the HPA samples that had never been used, for the final evaluation. (2) Close the three gaps found while writing the technical report. (3) Add the reading-list references to the technical report.
+
+Changes:
+
+- `src/data/simulate_v3.py`: `TEST2_IDS_FILE`, `N_TEST2_IDS = 100`, `TEST2_SEED = 2028`, `TEST2_SET_SEED = 61000`; new functions `test2_ids()`, `test2_set_dir()`, `make_test2_set()`; `held_out_ids()` always contains the second test IDs; `train_ids()` now has `write=False` as default; the module's main block prints all split sizes and builds the second test set if missing, and writes nothing to `data/splits/`.
+- `data/splits/hpa_test2.txt` (new, 100 IDs), `data/raw/own/sim_v3_test2/` (new, 6 levels × 100 images, 124 MB, git-ignored).
+- `scripts/train_diffflim.py`: calls `train_ids(write=True)` (the only place that writes `data/splits/hpa_train.txt`), prints the number of held-out IDs, and the message of the final sampling check names the actual number of DDIM steps. The list of training IDs was already stored in every checkpoint.
+- `src/models/diffflim.py`: the module docstring states the 10-step default.
+- `scripts/plot_training_curves.py` (new): regenerates `results/figures/loss_v2.png` and `results/figures/training_flimngo_v3.png` from the training logs.
+- `tests/test_simulate_v3.py`: the split test includes the second test set; new tests `test_second_test_set` and `test_train_ids_has_no_side_effect`.
+- `docs/TECHNICAL_REPORT.md` and `.pdf`, `results/README.md`: second test set, new script, removed gaps, references.
+
+Settings: the pool for the second test set was the set of complete samples in none of the earlier lists (DiffFLIM v2 training list, test, calibration, extra calibration): 216 of the 566 complete samples. 100 were drawn with seed 2028 and sorted; the paired set uses scene seed 61000 and noise seed 61000 + level, 100 images per level, so every second-test cell appears exactly once per level.
+
+Results: The split sizes are now: test 30, second test 100, calibration 20, extra calibration 54, training 362 (246 used by DiffFLIM v2 and the retrained FLIMngo, 116 new), together 566. The second test set does not overlap any other list. Building it took 65 s. `python -m src.data.simulate_v3` printed these sizes, skipped every existing data set, and left `data/splits/hpa_train.txt` unchanged (modification time still 2026-11-21 21:31). Nothing was evaluated on the second test set.
+
+`plot_training_curves.py` reproduced `training_flimngo_v3.png` pixel for pixel. For `loss_v2.png` the loss panel matches the first version; the data-wait curve agrees after the first 10 minutes but is smoothed slightly differently at the start, because the window of the original inline command was not recorded (the script uses a centred window of 100 log entries for both curves). The new file replaced the old one.
+
+In the technical report, FLIM_PSR (Casteleiro Costa et al., 2025), DynamicDPS (Kim et al., 2025) and PET-DEFT (Webber et al., 2025, preprint) are now cited with the details given by the user, in Section 4.1 and in the next steps; the FLIMngo paper is cited with volume and pages (J. Am. Chem. Soc. 147, 22609–22621). The note that the other general references still need checking was kept.
+
+All 32 tests passed (`test_simulate.py` 7, `test_simulate_v3.py` 11, `test_baselines.py` 5, `test_diffflim.py` 4, `test_calibration.py` 3, `test_flimngo.py` 2).
+
+Compared to before: the project has 130 test cells instead of 30, of which 100 are reserved; `train_ids()` returns 362 instead of 462 IDs; no script rewrites a split file as a side effect; every figure in `results/figures/` can be regenerated by a script, except `simulate_preview_p1000.png` from the removed simulator v1.
+
+Problems and fixes: none beyond the slight difference in the smoothing of the data-wait curve described above. No model has been trained on the 116 new training cells yet; the next DiffFLIM training run will use them automatically and record them in `data/splits/hpa_train.txt` and in its checkpoint.
+
+Next: evaluate all methods under FLIMngo's protocol on the first test set; real data; the second test set only for the final evaluation.
+
+### 2026-11-22 – First real-data evaluation: FLIMngo's C. elegans recordings
+
+Goal: Evaluate all methods, without training or tuning, on FLIMngo's 12 raw *C. elegans* recordings: reproduce the biological comparison of FLIMngo's Fig. 8 (Aβ-mScarlet versus mScarlet), measure split-half consistency, and look for signs that the real data lie outside the training data of DiffFLIM v2. Define the protocol once so that later models are evaluated identically.
+
+Changes:
+
+- `scripts/eval_real_celegans.py` (new): the fixed protocol (docstring and constants), Test A, Test B, a split-half reference on simulated data, two figures; predictions cached in `data/processed/real_celegans_baselines.npz` and `data/processed/real_celegans_diffflim_v2.npz`.
+- Results: `results/tables/real_celegans_groups_v2.csv`, `results/tables/real_celegans_splithalf_v2.csv`, `results/tables/real_celegans_splithalf_simref_v2.csv`, `results/figures/real_celegans_groups_v2.png`, `results/figures/real_celegans_examples_v2.png`; console log `logs/eval_real_celegans_v2.txt`.
+- `results/README.md`, `docs/TECHNICAL_REPORT.md` (new Sections 6.17 and 7.5, script description, limitations, reproducibility, next steps, glossary).
+
+Settings:
+
+- Data: `external/FLIMngo/sample_data/celegans/raw_data/`, read with `sdtfile`, time axis first; 256 × 256 pixels, 256 bins of 0.09765625 ns.
+- Mask: `flimngo_recall` (summed counts above 0.2 × their 99th percentile) on the full recording, for every method and both halves.
+- Background: mean count per bin and pixel outside the mask in bins 7 to 18.
+- MLE and binned MLE 5 × 5: v3 point-sampled mono-exponential model with FLIMngo's in-house PMT IRF, integer shift chosen once on the pooled decay of all recordings (−5 to +5 bins), τ bounds 0.05 to 15 ns.
+- FLIMngo: pretrained, own preprocessing, full image, bin width from the metadata.
+- DiffFLIM v2 (6 h): 10 DDIM steps × 10 samples on 64 × 64 tiles with stride 32 (49 tiles), linear-ramp blending of means and variances, separate sampler seeds for the full recording and each half; 90 % interval from the per-level factor of `calibration_factors_v2_extra_s10.csv` at the estimated photon level (clamped and flagged outside 10.3 to 1020).
+- Test A: median lifetime inside the mask per recording; two-sided exact Mann–Whitney U test per method. Test B: binomial thinning p = 0.5, seed 20261122 + recording index.
+- Simulated reference: the same split-half analysis on the first 10 v3 test images at 20, 50 and 100 photons.
+
+Results: **The data.** The recordings contain 0.10 to 0.59 million photons in total. The recall-oriented mask (threshold 0.2 × the 99th percentile of the summed counts, 4.4 to 18.8 photons) selected 4100 to 10 000 pixels per recording; inside it, the median pixel had 10 to 20 photons in the Aβ recordings and 27 to 49 photons in the mScarlet recordings (10th percentile 5 to 10 and 15 to 22). In the Aβ recordings 6 to 47 % of the mask pixels had fewer than 10 photons. The photon level estimated for the per-level factors was 14 to 67 photons, inside the calibrated range (10.3 to 1020); for the halves it was 7 to 33, and one half (Aβ w1) fell below the range and was clamped and flagged. The recall mask contained every pixel of FLIMngo's manual mask in the Aβ recordings (and was 1.1 to 1.9 times larger) and 74 to 86 % of it in the brighter mScarlet recordings, where its threshold is higher.
+
+The time axis agreed with the PMT IRF: the IRF peaks at bin 22, the pooled worm decay rises at bin 21 and peaks at bin 25, and the alignment chose a shift of 0 bins (pooled mono-exponential lifetime 3.03 ns). Two properties of the decays are not in the simulator: bins 0 to 6 are empty in every recording, and inside the worms the bins before the rise contain about 0.8 % and the last 20 bins about 1.3 % of the peak count per bin, an offset proportional to the signal (photons from the previous laser pulse or detector afterpulsing). The background outside the worms was low (0.00010 to 0.00045 counts per pixel and bin, 0.03 to 0.11 photons per pixel over the window).
+
+**Test A: Aβ-mScarlet versus mScarlet.** Median lifetime inside the mask per recording; medians over the 6 recordings of each group and two-sided exact Mann–Whitney test (`real_celegans_groups_v2.csv`):
+
+| Method | Aβ-mScarlet | mScarlet | Difference | U | p |
+|---|---|---|---|---|---|
+| MLE | 2.67 ns | 3.19 ns | −0.53 ns | 0 | 0.0022 |
+| Binned MLE 5 × 5 | 2.72 ns | 3.24 ns | −0.52 ns | 0 | 0.0022 |
+| FLIMngo pretrained | 2.84 ns | 3.34 ns | −0.50 ns | 1 | 0.0043 |
+| DiffFLIM v2 | 2.72 ns | 3.07 ns | −0.35 ns | 2 | 0.0087 |
+| FLIMngo, their masks, mean (notebook reproduction) | 2.81 ns | 3.26 ns | −0.45 ns | 0 | 0.0022 |
+
+![Test A: lifetime per recording, Aβ-mScarlet versus mScarlet, per method](../results/figures/real_celegans_groups_v2.png)
+
+Every method found a shorter lifetime for Aβ-mScarlet, as FLIMngo reported, and every test was significant at the 1 % level. With only 6 recordings per group the smallest possible p value is 0.0022, which four methods reached (no overlap between the groups); FLIMngo had one and DiffFLIM two pairs in the wrong order (one mScarlet recording, w6, lies inside the Aβ range for DiffFLIM). The group difference of DiffFLIM (0.35 ns) was smaller than that of the other methods (0.45 to 0.53 ns), mainly because its mScarlet lifetimes were lower (3.07 against 3.19 to 3.34 ns), while its Aβ lifetimes matched the binned MLE. Without ground truth it cannot be decided which method is closer to the true lifetimes; on simulated data all learned methods pulled lifetimes towards the common values of their training data (Section 6.15).
+
+**Test B: split-half consistency.** Median over the 12 recordings of the per-recording medians inside the mask (`real_celegans_splithalf_v2.csv`):
+
+| Method | Halves A versus B | Half versus full data |
+|---|---|---|
+| MLE | 0.47 ns (16.4 %) | 0.48 ns |
+| Binned MLE 5 × 5 | 0.10 ns (3.5 %) | 0.10 ns |
+| FLIMngo pretrained | 0.14 ns (4.6 %) | 0.14 ns |
+| DiffFLIM v2 | 0.10 ns (3.4 %) | 0.09 ns |
+
+DiffFLIM was as consistent as the 5 × 5 binned MLE and more consistent than FLIMngo and the per-pixel MLE; all methods were less consistent on the dimmer Aβ recordings (DiffFLIM 4.2 % against 2.6 % for mScarlet). The calibrated 90 % intervals of DiffFLIM had a median half-width of 0.64 ns (18 to 27 % of the lifetime); the intervals of the two halves overlapped in 100 % of the mask pixels, and one half's mean lay inside the other half's interval in 99.9 %. These fractions are not coverages, because the two halves share the same truth: errors that do not depend on the photon noise, such as the pull of the learned prior, are common to both halves. On simulated test images with the same split (halves of 10, 25 and 50 photons, `real_celegans_splithalf_simref_v2.csv`), the same analysis gave 99.8 % overlap and 95 to 97 % "B in A" while the calibrated coverage against the truth was 91 to 92 % and the relative half-width 24 to 32 %. The real-data values are therefore what a calibrated model would show; they do not test the calibration.
+
+On simulated data at comparable photon counts, the two halves of DiffFLIM differed by 6.4 to 7.0 %, about twice as much as on the real recordings. Either the real lifetime maps are smoother than v3 maps (which contain 4.4 % per-pixel jitter and up to four components per pixel), or DiffFLIM relies more on its prior on these data; a split-half test cannot distinguish the two.
+
+![Example recordings: summed counts, lifetime maps of all methods and DiffFLIM's calibrated 90 % half-width](../results/figures/real_celegans_examples_v2.png)
+
+**Signs that the real data lie outside the training data.** (1) Photon counts at the bottom of the training range (10 to 1000 per foreground pixel): many Aβ pixels below 10 photons, one half below the calibrated range. (2) 256 × 256 images instead of 64 × 64 crops, processed in blended tiles; tiles that contain only background or worm edges are unlike training crops, which had at least 5 % foreground. (3) Background structure: empty first bins and a signal-proportional offset of about 1 % of the peak per bin, not simulated. (4) Moving worms and neuron morphology instead of HPA cell crops. (5) The recall mask includes isolated noise pixels in the dim Aβ recordings. In favour of the model: the bin width is the same, the PMT IRF is part of the training library and needed no shift, and the lifetimes (2.5 to 3.5 ns) lie in the middle of the training range.
+
+
+Compared to before: the first results on measured data; until now every result was on simulated data.
+
+Problems and fixes: In the first complete run, DiffFLIM sampled the full recording and both halves with the same seeds (1000 + tile index), and the simulated reference did the same for its halves. With the deterministic DDIM sampler this makes the predictions of the two halves share their starting noise, which makes them agree more than the photon data justify. The seeds were made different per part (offsets 0, 100000 and 200000) and the DiffFLIM predictions were recomputed before any result was used; the median split-half difference changed from 3.0 to 3.4 % on the real data and from 6.3 to 6.4 to 7.0 % in the reference. The baselines were not affected. The first docstring of the script stated reference values for Test B (75 % "B in A", 98 % overlap) under the assumption that the halves' errors are independent; this assumption does not hold for a model with a prior (the halves share the same truth), so the reference values are now taken from the simulated split-half analysis. The colour range of the uncertainty panels in the example figure was fixed at 0 to 1.5 ns after the first rendering, because the automatic range differed between the two rows; this changes only the display. Heredoc commands with escaped backslashes failed again while exploring the data; the exploration was moved into a script file.
+
+Next: a real sample with a known lifetime (FLUTE fluorescein, thinned) to check accuracy and calibration on real data; FLIMngo-protocol evaluation on simulated data.
+

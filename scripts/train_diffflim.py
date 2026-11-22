@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.data.stream import SimStream  # noqa: E402
-from src.models.diffflim import DiffFLIM  # noqa: E402
+from src.models.diffflim import DEFAULT_SAMPLE_STEPS, DiffFLIM  # noqa: E402
 from src.paths import CHECKPOINTS, LOGS  # noqa: E402
 
 
@@ -50,7 +50,7 @@ def quick_check(ema, device, simulator="v2"):
     t0 = time.perf_counter()
     s = ema.sample(counts, n_samples=4, seed=0)
     print(f"Sampling check: samples {s.shape}, finite={np.isfinite(s).all()}, "
-          f"{time.perf_counter() - t0:.1f} s for 4 samples x 50 DDIM steps")
+          f"{time.perf_counter() - t0:.1f} s for 4 samples x {DEFAULT_SAMPLE_STEPS} DDIM steps")
     base = fit_all(counts, float(d["bg_per_bin"][0]), d["metadata"], d["irf"][0] if "irf" in d else None,
                    methods=("MLE", "BinMLE5"))
     rows = [("DiffFLIM", s[:, 0].mean(0), s[:, 1].mean(0))] + [(k, t, I) for k, (t, I) in base.items()]
@@ -94,9 +94,12 @@ def main():
     ids = None
     if args.simulator == "v3":
         from src.data import simulate_v3 as v3
-        ids = v3.train_ids()                    # computed once; excludes test and calibration IDs
+        # computed once; excludes test, second-test, calibration and extra-calibration IDs. This is the
+        # only place where data/splits/hpa_train.txt is written (record of the latest training run).
+        ids = v3.train_ids(write=True)
         args.train_ids = list(ids)              # stored in every checkpoint (vars(args)) as the record
-        print(f"Simulator v3: {len(ids)} training IDs (test {len(v3.test_ids())}, calibration {len(v3.calib_ids())})")
+        print(f"Simulator v3: {len(ids)} training IDs (written to {v3.TRAIN_IDS_FILE.name}; held out: "
+              f"{len(v3.held_out_ids())} test, second-test and calibration IDs)")
     stream = SimStream(seed=args.seed, simulator=args.simulator, ids=ids, tau_range=tau_range)
     loader = DataLoader(stream, batch_size=args.batch, num_workers=args.workers,
                         pin_memory=True, persistent_workers=args.workers > 0,

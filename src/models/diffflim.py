@@ -12,7 +12,8 @@ Pipeline
     to copy the signal from x_t instead of reading it from the counts, and DDIM sampling from
     pure noise failed (v1_eps run: 48% tau error). At high noise v ~ -x0, so the v-loss forces
     the network to predict the maps from the counts.
-    Sampling: DDIM, 50 deterministic steps; different starting noise -> different samples.
+    Sampling: deterministic DDIM, DEFAULT_SAMPLE_STEPS = 10 steps by default (50 until 2026-11-22;
+    the step count stays a parameter); different starting noise -> different samples.
     N samples per image -> mean = prediction, std = uncertainty.
 
 Everything is small on purpose (fits an 8 GB laptop GPU): base 64 channels, 3 U-Net levels.

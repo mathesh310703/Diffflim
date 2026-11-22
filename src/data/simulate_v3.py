@@ -81,15 +81,22 @@ CALIB_IDS_FILE = SPLITS / "hpa_calib.txt"
 # a future model may only train on them if this is stated in the project log.
 TRAIN_IDS_V2_FILE = SPLITS / "hpa_train_diffflim_v2.txt"
 CALIB_EXTRA_V2_FILE = SPLITS / "hpa_calib_extra_v2.txt"
+# Second test set (2026-11-22): 100 of the 216 complete samples that no model, calibration or data
+# set had used, drawn once with TEST2_SEED and never rewritten. Reserved for the final evaluation;
+# excluded from training and calibration forever.
+TEST2_IDS_FILE = SPLITS / "hpa_test2.txt"
 N_TEST_IDS = 30
 N_CALIB_IDS = 20
+N_TEST2_IDS = 100
 SPLIT_SEED = 2026
 CALIB_SEED = 2027
+TEST2_SEED = 2028
 
 TEST_PHOTON_LEVELS = (10, 20, 50, 100, 500, 1000)
 TEST_SEED = 31000        # scenes of the paired test set (noise: TEST_SEED + level)
 CALIB_SET_SEED = 41000   # scenes of the paired calibration set (noise: CALIB_SET_SEED + level)
 CALIB_EXTRA_SET_SEED = 51000   # scenes of the extra paired calibration set (unseen-by-v2 cells)
+TEST2_SET_SEED = 61000   # scenes of the second paired test set (noise: TEST2_SET_SEED + level)
 
 # (id, source, parameters, laser jitter (early, late) in bins) -- FLIMngo notebook 2
 IRF_LIBRARY = (
@@ -213,20 +220,42 @@ def calib_extra_v2_ids(hpa_dir=HPA_DIR):
     return ids
 
 
+def test2_ids(hpa_dir=HPA_DIR):
+    """The FIXED second test set: N_TEST2_IDS samples drawn once (seed TEST2_SEED) from the complete
+    samples that were in none of the earlier lists (DiffFLIM v2 training, test, calibration, extra
+    calibration), i.e. never used by any model or data set. Written to data/splits/hpa_test2.txt
+    and never rewritten. Reserved for the final evaluation; never used for training or calibration."""
+    if TEST2_IDS_FILE.exists():
+        return _read_ids(TEST2_IDS_FILE)
+    used = (set(diffflim_v2_train_ids()) | set(test_ids(hpa_dir)) | set(calib_ids(hpa_dir))
+            | set(calib_extra_v2_ids(hpa_dir)))
+    pool = [i for i in complete_ids(hpa_dir) if i not in used]
+    if len(pool) < N_TEST2_IDS:
+        raise RuntimeError(f"Only {len(pool)} unused complete samples; need {N_TEST2_IDS}.")
+    chosen = sorted(np.random.default_rng(TEST2_SEED).choice(pool, N_TEST2_IDS, replace=False).tolist())
+    TEST2_IDS_FILE.write_text("\n".join(chosen) + "\n")
+    return chosen
+
+
 def held_out_ids(hpa_dir=HPA_DIR, include_calib_extra=True):
-    """IDs that training must not use: test, calibration and (if it exists) extra calibration."""
+    """IDs that training must not use: test, second test (if it exists), calibration and (if it
+    exists) extra calibration. The second test set is always held out."""
     held = set(test_ids(hpa_dir)) | set(calib_ids(hpa_dir))
+    if TEST2_IDS_FILE.exists():
+        held |= set(_read_ids(TEST2_IDS_FILE))
     if include_calib_extra and CALIB_EXTRA_V2_FILE.exists():
         held |= set(_read_ids(CALIB_EXTRA_V2_FILE))
     return held
 
 
-def train_ids(hpa_dir=HPA_DIR, write=True, allow_calib_extra=False):
-    """All complete samples that are neither test, calibration nor extra-calibration samples,
-    computed now (new downloads are added to training automatically). Written to
-    data/splits/hpa_train.txt. allow_calib_extra=True also returns the extra calibration cells;
-    only use it deliberately and note it in the project log (the extra calibration set then
-    stops being unseen data)."""
+def train_ids(hpa_dir=HPA_DIR, write=False, allow_calib_extra=False):
+    """All complete samples that are neither test, second test, calibration nor extra-calibration
+    samples, computed now (new downloads are added to training automatically). Nothing is written
+    unless write=True: the training scripts call it with write=True once at the start of a run, so
+    data/splits/hpa_train.txt records the list of the latest training run (each checkpoint also
+    stores its own list). allow_calib_extra=True also returns the extra calibration cells; only use
+    it deliberately and note it in the project log (the extra calibration set then stops being
+    unseen data). The second test set can never be returned."""
     held_out = held_out_ids(hpa_dir, include_calib_extra=not allow_calib_extra)
     ids = [i for i in complete_ids(hpa_dir) if i not in held_out]
     if write:
@@ -553,6 +582,17 @@ def make_calib_extra_set(out_dir=None, levels=TEST_PHOTON_LEVELS, n_per_level=10
                             "calib_extra_v2", levels, n_per_level, seed, force)
 
 
+def test2_set_dir():
+    return RAW_OWN / "sim_v3_test2"
+
+
+def make_test2_set(out_dir=None, levels=TEST_PHOTON_LEVELS, n_per_level=100, seed=TEST2_SET_SEED, force=False):
+    """Second fixed, PAIRED v3 test set from the 100 second-test IDs only: test_p{level}.npz in
+    data/raw/own/sim_v3_test2/. Reserved for the final evaluation; do not evaluate on it before."""
+    return _make_paired_set(test2_set_dir() if out_dir is None else out_dir, "test", test2_ids(), "test2",
+                            levels, n_per_level, seed, force)
+
+
 def make_calib_set(out_dir=None, levels=TEST_PHOTON_LEVELS, n_per_level=100, seed=CALIB_SET_SEED, force=False):
     """Fixed, PAIRED v3 calibration set from the fixed CALIBRATION IDs only: calib_p{level}.npz."""
     return _make_paired_set(calib_set_dir() if out_dir is None else out_dir, "calib", calib_ids(), "calib",
@@ -561,7 +601,10 @@ def make_calib_set(out_dir=None, levels=TEST_PHOTON_LEVELS, n_per_level=100, see
 
 if __name__ == "__main__":
     import sys
-    tr = train_ids()
-    print(f"HPA: {len(tr)} train IDs, {len(calib_ids())} calibration IDs, {len(test_ids())} test IDs")
+    tr = train_ids()                      # write=False: nothing in data/splits/ is changed here
+    print(f"HPA: {len(tr)} train IDs, {len(calib_ids())} calibration IDs, "
+          f"{len(calib_extra_v2_ids())} extra calibration IDs, {len(test_ids())} test IDs, "
+          f"{len(test2_ids())} second-test IDs")
     make_test_set(force="--force" in sys.argv)
     make_calib_set(force="--force" in sys.argv)
+    make_test2_set(force="--force" in sys.argv)
