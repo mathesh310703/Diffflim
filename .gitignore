@@ -11,3 +11,26 @@ __pycache__/
 *.tar
 
 external/
+
+# local assistant instructions (not committed)
+CLAUDE.md
+
+# --- large or restricted files (never commit) ---
+data/raw/
+data/processed/
+external/
+checkpoints/
+*.pt
+*.pth
+*.npz
+*.sdt
+*.h5
+*.tif
+*.tiff
+# training/eval console logs can get large
+logs/*.txt
+# tool settings
+CLAUDE.md
+.vscode/
+__pycache__/
+*.pyc

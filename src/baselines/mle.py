@@ -14,6 +14,9 @@ Fitting, vectorised over all pixels:
   3. I: a few Newton steps on the exact MLE condition  sum_t c_t d_t / (I d_t + b) = 1  at the
      fitted tau (only differs from I0 when b > 0).
 
+Other forward models (e.g. simulator v3 with its per-image IRF) are passed as `decay_fn`:
+a function tau (any shape) -> normalised decays (T, *shape). The default is decay_curves(., cfg).
+
 `fit_pixel_scalar` does the same fit for one pixel with scipy.optimize.minimize_scalar; it is
 slow but simple, and the tests use it to check the grid version.
 """
@@ -44,18 +47,19 @@ def _refine_intensity(counts_flat, d, bg_per_bin, i0, n_iter=8):
     return I
 
 
-def fit_mle(counts, cfg, bg_per_bin, tau_bounds=TAU_BOUNDS, n_grid=200, chunk=256):
+def fit_mle(counts, cfg, bg_per_bin, tau_bounds=TAU_BOUNDS, n_grid=200, chunk=256, decay_fn=None):
     """Fit every pixel of one image.
 
     counts: (T, H, W) integer histogram.  Returns tau (H, W) ns and intensity (H, W) photons.
     Pixels with zero counts get tau = NaN (lifetime undefined) and intensity = 0.
     """
+    curves = decay_fn if decay_fn is not None else (lambda tau: decay_curves(tau, cfg))
     T, H, W = counts.shape
     c = counts.reshape(T, -1).T.astype(np.float32)               # (P, T)
     i0, n_total = _intensity_start(c, bg_per_bin)
 
     log_grid = np.linspace(np.log(tau_bounds[0]), np.log(tau_bounds[1]), n_grid)
-    D = decay_curves(np.exp(log_grid), cfg).T.astype(np.float32)  # (G, T)
+    D = curves(np.exp(log_grid)).T.astype(np.float32)            # (G, T)
 
     # NLL(tau_g) for every pixel; sum_t lambda_t = I0 + bT does not depend on tau -> dropped.
     nll = np.empty((c.shape[0], n_grid), dtype=np.float64)
@@ -77,7 +81,7 @@ def fit_mle(counts, cfg, bg_per_bin, tau_bounds=TAU_BOUNDS, n_grid=200, chunk=25
     log_tau = np.where(best == 0, log_grid[0], np.where(best == n_grid - 1, log_grid[-1], log_tau))
     tau = np.exp(log_tau)
 
-    d_fit = decay_curves(tau, cfg).T                             # (P, T)
+    d_fit = curves(tau).T                                        # (P, T)
     intensity = _refine_intensity(c.astype(np.float64), d_fit, bg_per_bin, i0)
 
     tau[n_total == 0] = np.nan
@@ -85,16 +89,17 @@ def fit_mle(counts, cfg, bg_per_bin, tau_bounds=TAU_BOUNDS, n_grid=200, chunk=25
     return tau.reshape(H, W), intensity.reshape(H, W)
 
 
-def fit_pixel_scalar(counts_1d, cfg, bg_per_bin, tau_bounds=TAU_BOUNDS):
+def fit_pixel_scalar(counts_1d, cfg, bg_per_bin, tau_bounds=TAU_BOUNDS, decay_fn=None):
     """Reference fit of one pixel (T,) with minimize_scalar. Same likelihood as fit_mle."""
+    curves = decay_fn if decay_fn is not None else (lambda tau: decay_curves(tau, cfg))
     c = counts_1d.astype(np.float64)
     i0, _ = _intensity_start(c[None], bg_per_bin)
 
     def nll(log_tau):
-        lam = i0[0] * decay_curves(np.exp(log_tau), cfg) + bg_per_bin + _EPS
+        lam = i0[0] * curves(np.array([np.exp(log_tau)]))[:, 0] + bg_per_bin + _EPS
         return -(c * np.log(lam)).sum()
 
     res = minimize_scalar(nll, bounds=np.log(tau_bounds), method="bounded", options={"xatol": 1e-5})
     tau = float(np.exp(res.x))
-    intensity = _refine_intensity(c[None], decay_curves(np.array([tau]), cfg).T, bg_per_bin, i0)[0]
+    intensity = _refine_intensity(c[None], curves(np.array([tau])).T, bg_per_bin, i0)[0]
     return tau, float(intensity)

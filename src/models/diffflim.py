@@ -27,9 +27,16 @@ import torch.nn.functional as F
 # ----------------------------------------------------------------------------------------
 # Target normalisation (fixed constants, so the model never sees dataset statistics)
 # ----------------------------------------------------------------------------------------
-# log(tau): tau in [0.5, 5] ns  ->  [-1, 1]
+# log(tau): tau in TAU_RANGE ns -> [-1, 1]. v1 (simulate.py data) used (0.5, 5); models store their
+# own range in the checkpoint config (DiffFLIM v2 on simulator-v3 data: (0.1, 12)).
+DEFAULT_TAU_RANGE = (0.5, 5.0)
 TAU_LOG_CENTER = 0.5 * (math.log(0.5) + math.log(5.0))
 TAU_LOG_SCALE = 0.5 * (math.log(5.0) - math.log(0.5))
+
+
+def _tau_consts(tau_range):
+    lo, hi = tau_range
+    return 0.5 * (math.log(lo) + math.log(hi)), 0.5 * (math.log(hi) - math.log(lo))
 # log1p(intensity): intensity in [0, ~3000] photons -> log1p in [0, 8] -> [-1, 1]
 INT_LOG_CENTER = 4.0
 INT_LOG_SCALE = 4.0
@@ -41,18 +48,20 @@ def _lib(x):
     return torch if torch.is_tensor(x) else np
 
 
-def normalize_targets(tau, intensity):
+def normalize_targets(tau, intensity, tau_range=DEFAULT_TAU_RANGE):
     """tau, intensity (..., H, W) -> (..., 2, H, W) normalised target (numpy or torch)."""
     xp = _lib(tau)
-    y_tau = (xp.log(tau) - TAU_LOG_CENTER) / TAU_LOG_SCALE
+    c, sc = _tau_consts(tau_range)
+    y_tau = (xp.log(tau) - c) / sc
     y_int = (xp.log1p(intensity) - INT_LOG_CENTER) / INT_LOG_SCALE
     return xp.stack([y_tau, y_int], -3)
 
 
-def denormalize_targets(y):
+def denormalize_targets(y, tau_range=DEFAULT_TAU_RANGE):
     """(..., 2, H, W) normalised -> (tau, intensity), each (..., H, W), physical units."""
     xp = _lib(y)
-    tau = xp.exp(y[..., 0, :, :] * TAU_LOG_SCALE + TAU_LOG_CENTER)
+    c, sc = _tau_consts(tau_range)
+    tau = xp.exp(y[..., 0, :, :] * sc + c)
     intensity = xp.expm1(y[..., 1, :, :] * INT_LOG_SCALE + INT_LOG_CENTER)
     return tau, (intensity.clamp(min=0) if xp is torch else np.maximum(intensity, 0))
 
@@ -176,11 +185,13 @@ def cosine_alphas_cumprod(n_steps, s=0.008):
 
 
 class DiffFLIM(nn.Module):
-    def __init__(self, base=64, cond_ch=64, n_steps=1000, bg_weight=0.1, prediction="v"):
+    def __init__(self, base=64, cond_ch=64, n_steps=1000, bg_weight=0.1, prediction="v",
+                 tau_range=DEFAULT_TAU_RANGE):
         super().__init__()
         assert prediction in ("v", "eps")
+        self.tau_range = tuple(float(x) for x in tau_range)
         self.config = {"base": base, "cond_ch": cond_ch, "n_steps": n_steps, "bg_weight": bg_weight,
-                       "prediction": prediction}
+                       "prediction": prediction, "tau_range": list(self.tau_range)}
         self.prediction = prediction
         self.n_steps = n_steps
         self.bg_weight = bg_weight
@@ -243,7 +254,7 @@ class DiffFLIM(nn.Module):
             k = min(batch, n_samples - s)
             with torch.autocast(device.type, dtype=torch.bfloat16, enabled=device.type == "cuda"):
                 y = self.ddim_sample(binned.expand(k, -1, -1, -1), steps, generator=g)
-            tau, inten = denormalize_targets(y.float())
+            tau, inten = denormalize_targets(y.float(), self.tau_range)
             out.append(torch.stack([tau, inten], 1).cpu().numpy())
         return np.concatenate(out)
 

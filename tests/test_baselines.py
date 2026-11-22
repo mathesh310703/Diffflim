@@ -55,6 +55,25 @@ def test_mle_speed():
     assert sec < 30
 
 
+def test_v3_forward_model_recovery():
+    """Mono-exponential v3 data (real PMT IRF): MLE, binned MLE and phasor recover tau."""
+    from src.baselines.common import fit_all
+    from src.data import simulate_v3 as v3
+    cfg3 = v3.SimConfigV3(size=8)
+    irf = v3.irf_library(cfg3)[6]["irf"]                        # IRF_PMT
+    meta = {"simulator": "v3", "size": 8, "n_bins": 256, "bin_width_ns": cfg3.bin_width_ns}
+    rng = np.random.default_rng(5)
+    for tau0 in [0.8, 2.5, 6.0]:
+        lam = 1e5 * v3.decay_curves_v3(np.full((8, 8), tau0), irf, cfg3) + 2.0
+        res = fit_all(sample_counts(lam, rng), 2.0, meta, irf)
+        for name, (tau, inten) in res.items():
+            print(f"  {name:7s} tau0={tau0}: {np.median(tau):.4f} ns, I={np.median(inten):.0f}")
+            # phasor: v3 decays are truncated at the window end (not periodic) -> bias grows with tau
+            tol = 0.01 if name != "Phasor" else (0.02 if tau0 < 3 else 0.06)
+            assert abs(np.median(tau) / tau0 - 1) < tol, name
+            assert abs(np.median(inten) / 1e5 - 1) < 0.01, name
+
+
 def test_zero_count_pixels():
     cfg = SimConfig(size=4)
     tau, inten = fit_mle(np.zeros((cfg.n_bins, 4, 4), dtype=np.uint16), cfg, 0.0)

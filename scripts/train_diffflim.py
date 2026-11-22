@@ -31,11 +31,15 @@ def save_checkpoint(path, model, ema, opt, step, elapsed, args):
     tmp.replace(path)   # atomic: a crash never leaves a half-written checkpoint
 
 
-def quick_check(ema, device):
+def quick_check(ema, device, simulator="v2"):
     """Sample one test image at 100 photons and compare tau error to MLE (foreground pixels)."""
-    from src.baselines.mle import fit_mle
-    from src.data.simulate import config_from_metadata, load_dataset, test_set_dir
+    from src.baselines.common import fit_all
+    from src.data.simulate import load_dataset
     from src.evaluation.metrics import summarize
+    if simulator == "v3":
+        from src.data.simulate_v3 import test_set_dir
+    else:
+        from src.data.simulate import test_set_dir
 
     path = test_set_dir() / "test_p100.npz"
     if not path.exists():
@@ -47,12 +51,12 @@ def quick_check(ema, device):
     s = ema.sample(counts, n_samples=4, seed=0)
     print(f"Sampling check: samples {s.shape}, finite={np.isfinite(s).all()}, "
           f"{time.perf_counter() - t0:.1f} s for 4 samples x 50 DDIM steps")
-    tau_mle, _ = fit_mle(counts, config_from_metadata(d["metadata"]), float(d["bg_per_bin"][0]))
-    for name, tau, inten in [("DiffFLIM", s[:, 0].mean(0), s[:, 1].mean(0)), ("MLE", tau_mle, None)]:
-        line = f"  {name:8s} tau err {summarize(tau, tau_gt, m)['mare_pct']:.2f}%"
-        if inten is not None:
-            line += f", intensity err {summarize(inten, int_gt, m)['mare_pct']:.2f}%"
-        print(line)
+    base = fit_all(counts, float(d["bg_per_bin"][0]), d["metadata"], d["irf"][0] if "irf" in d else None,
+                   methods=("MLE", "BinMLE5"))
+    rows = [("DiffFLIM", s[:, 0].mean(0), s[:, 1].mean(0))] + [(k, t, I) for k, (t, I) in base.items()]
+    for name, tau, inten in rows:
+        print(f"  {name:8s} tau err {summarize(tau, tau_gt, m)['mare_pct']:.2f}%, "
+              f"intensity err {summarize(inten, int_gt, m)['mare_pct']:.2f}%")
 
 
 def main():
@@ -65,6 +69,11 @@ def main():
     ap.add_argument("--ema", type=float, default=0.999)
     ap.add_argument("--base", type=int, default=64)
     ap.add_argument("--prediction", choices=["v", "eps"], default="v")
+    ap.add_argument("--simulator", choices=["v2", "v3"], default="v2", help="training data generator")
+    ap.add_argument("--tau-range", type=float, nargs=2, default=None,
+                    help="lifetime normalisation range in ns (default: 0.5 5 for v2, 0.1 12 for v3)")
+    ap.add_argument("--snapshot-at", type=float, nargs="*", default=[],
+                    help="also keep copies of the checkpoint at these training minutes (e.g. 180)")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--ckpt-every", type=float, default=10, help="minutes")
     ap.add_argument("--log-every", type=int, default=50, help="steps")
@@ -75,13 +84,20 @@ def main():
     device = torch.device("cuda")
     torch.backends.cudnn.benchmark = True
 
-    model = DiffFLIM(base=args.base, prediction=args.prediction).to(device)
+    tau_range = tuple(args.tau_range) if args.tau_range else ((0.1, 12.0) if args.simulator == "v3" else (0.5, 5.0))
+    model = DiffFLIM(base=args.base, prediction=args.prediction, tau_range=tau_range).to(device)
     ema = copy.deepcopy(model).eval().requires_grad_(False)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"DiffFLIM: {n_params / 1e6:.2f} M parameters, batch {args.batch}, {args.workers} data workers")
 
-    loader = DataLoader(SimStream(seed=args.seed), batch_size=args.batch, num_workers=args.workers,
+    ids = None
+    if args.simulator == "v3":
+        from src.data import simulate_v3 as v3
+        ids = v3.train_ids()                    # computed once; excludes test and calibration IDs
+        print(f"Simulator v3: {len(ids)} training IDs (test {len(v3.test_ids())}, calibration {len(v3.calib_ids())})")
+    stream = SimStream(seed=args.seed, simulator=args.simulator, ids=ids, tau_range=tau_range)
+    loader = DataLoader(stream, batch_size=args.batch, num_workers=args.workers,
                         pin_memory=True, persistent_workers=args.workers > 0,
                         prefetch_factor=4 if args.workers > 0 else None)
 
@@ -94,6 +110,7 @@ def main():
 
     t_start = time.perf_counter()
     t_log, t_ckpt, wait, losses, step = t_start, t_start, 0.0, [], 0
+    pending_snapshots = sorted(args.snapshot_at)
     t_fetch = time.perf_counter()
     for batch in loader:
         wait += time.perf_counter() - t_fetch
@@ -132,6 +149,11 @@ def main():
                 print(f"step {step:6d}  {(now - t_start) / 60:5.1f} min  loss {np.mean(losses):.4f}  "
                       f"{ips:.1f} it/s  data wait {wait / (now - t_log):.0%}", flush=True)
             losses, t_log, wait = [], now, 0.0
+        for m in [x for x in pending_snapshots if elapsed >= x * 60]:
+            snap = CHECKPOINTS / f"{args.name}_{int(m)}min.pt"
+            save_checkpoint(snap, model, ema, opt, step, elapsed, args)
+            pending_snapshots.remove(m)
+            print(f"snapshot saved: {snap.name} (step {step})", flush=True)
         if time.perf_counter() - t_ckpt > args.ckpt_every * 60:
             save_checkpoint(ckpt_path, model, ema, opt, step, time.perf_counter() - t_start, args)
             t_ckpt = time.perf_counter()
@@ -143,7 +165,7 @@ def main():
     log_f.close()
     print(f"Done: {step} steps in {elapsed / 60:.1f} min ({step / elapsed:.1f} it/s). "
           f"Peak GPU memory {torch.cuda.max_memory_allocated() / 1e9:.2f} GB. Saved {ckpt_path}")
-    quick_check(ema, device)
+    quick_check(ema, device, args.simulator)
 
 
 if __name__ == "__main__":

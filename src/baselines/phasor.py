@@ -12,8 +12,15 @@ Steps:
   3. Phase lifetime of a mono-exponential:  tau = s / (g * omega).
 Intensity = total counts - b * T.
 
-Not corrected (small, but known): the simulator truncates the decay at the end of the window
-instead of wrapping it around; for tau = 5 ns this shifts the phase lifetime by well under 1%.
+Point-sampled decays (simulator v3 / FLIMngo, decay = exp(-k dt / tau) at bin starts): the phasor
+of the geometric sequence r^k (r = exp(-dt/tau)) has tan(phi) = r sin(theta) / (1 - r cos(theta)),
+theta = omega dt, so the plain formula gives about tau - dt/2. With point_sampled=True the exact
+inversion r = tan(phi) / (sin(theta) + tan(phi) cos(theta)), tau = -dt / ln(r) is used instead.
+
+Not corrected: the simulators truncate the decay at the end of the window instead of wrapping
+it around (no pile-up from the previous pulse), while the phasor assumes a periodic signal. For
+simulate.py (IRF at 1 ns) and tau = 5 ns this shifts the phase lifetime by under 1 %; for v3
+(IRF peak at 2-5 ns, tau up to 12 ns) it is about +4 % at 6 ns and grows with tau.
 At low photon counts g can be ~0 or negative, which gives huge or negative tau; those values are
 kept as they are (they are real phasor failures), only g = 0 or no net signal gives NaN.
 """
@@ -33,7 +40,7 @@ def phasor_coordinates(f, cfg):
     return g, s
 
 
-def fit_phasor(counts, cfg, bg_per_bin, irf=None):
+def fit_phasor(counts, cfg, bg_per_bin, irf=None, point_sampled=False):
     """counts: (T, H, W). Returns tau (H, W) ns, intensity (H, W) photons, and g, s (corrected)."""
     f = counts.astype(np.float64) - bg_per_bin                   # background subtraction
     g, s = phasor_coordinates(f, cfg)
@@ -45,7 +52,13 @@ def fit_phasor(counts, cfg, bg_per_bin, irf=None):
     with np.errstate(divide="ignore", invalid="ignore"):
         z = (g + 1j * s) / (g_irf[0] + 1j * s_irf[0])            # IRF correction (complex division)
         g, s = z.real, z.imag
-        tau = s / (g * omega)
+        if point_sampled:
+            theta = omega * cfg.bin_width_ns
+            tan_phi = s / g
+            r = tan_phi / (np.sin(theta) + tan_phi * np.cos(theta))
+            tau = -cfg.bin_width_ns / np.log(r)
+        else:
+            tau = s / (g * omega)
     tau[~np.isfinite(tau)] = np.nan
     intensity = f.sum(axis=0)
     return tau, intensity, g, s

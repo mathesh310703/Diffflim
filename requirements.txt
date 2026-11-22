@@ -7,3 +7,6 @@ pyyaml
 tqdm
 tifffile
 huggingface_hub
+markdown
+xhtml2pdf
+sdtfile
