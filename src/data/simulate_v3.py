@@ -85,18 +85,28 @@ CALIB_EXTRA_V2_FILE = SPLITS / "hpa_calib_extra_v2.txt"
 # set had used, drawn once with TEST2_SEED and never rewritten. Reserved for the final evaluation;
 # excluded from training and calibration forever.
 TEST2_IDS_FILE = SPLITS / "hpa_test2.txt"
+# Validation set (2026-11-23): 40 of the complete samples that no model, calibration or data set
+# had used (not in the DiffFLIM v2 or v3cells training lists, test, second test, calibration or
+# extra calibration), drawn once with VAL_SEED and never rewritten. For choosing settings in
+# future experiments; excluded from training, test and calibration.
+VAL_IDS_FILE = SPLITS / "hpa_val.txt"
+# Training list of DiffFLIM v3cells (386 IDs; equal to data/splits/hpa_train.txt on 2026-11-23).
+V3CELLS_TRAIN_IDS = ("checkpoints/diffflim_v3cells.pt",)
 N_TEST_IDS = 30
 N_CALIB_IDS = 20
 N_TEST2_IDS = 100
+N_VAL_IDS = 40
 SPLIT_SEED = 2026
 CALIB_SEED = 2027
 TEST2_SEED = 2028
+VAL_SEED = 2029
 
 TEST_PHOTON_LEVELS = (10, 20, 50, 100, 500, 1000)
 TEST_SEED = 31000        # scenes of the paired test set (noise: TEST_SEED + level)
 CALIB_SET_SEED = 41000   # scenes of the paired calibration set (noise: CALIB_SET_SEED + level)
 CALIB_EXTRA_SET_SEED = 51000   # scenes of the extra paired calibration set (unseen-by-v2 cells)
 TEST2_SET_SEED = 61000   # scenes of the second paired test set (noise: TEST2_SET_SEED + level)
+VAL_SET_SEED = 71000     # scenes of the paired validation set (noise: VAL_SET_SEED + level)
 
 # (id, source, parameters, laser jitter (early, late) in bins) -- FLIMngo notebook 2
 IRF_LIBRARY = (
@@ -130,6 +140,11 @@ class SimConfigV3:
     bg_fraction: float = 0.02                # as simulate.py
     min_fg_frac: float = 0.05                # FLIMngo: > 5 % non-background pixels
     max_crop_tries: int = 50
+    # FLUTE instrument option (2026-11-23, see flute_config()): periodic decays (the tail of earlier
+    # pulses wraps into the window, which then covers exactly one laser period) and the FLUTE IRF set.
+    periodic: bool = False
+    irf_set: str = "flimngo"                 # "flimngo" (12 FLIMngo IRFs) or "flute"
+    irf_peak_range_ns: tuple = (0.3, 1.8)    # flute only: IRF peak position, uniform (circular shift)
 
     @property
     def time_starts(self):
@@ -237,12 +252,33 @@ def test2_ids(hpa_dir=HPA_DIR):
     return chosen
 
 
+def val_ids(hpa_dir=HPA_DIR):
+    """The FIXED validation set: N_VAL_IDS samples drawn once (seed VAL_SEED) from the complete samples
+    that were in none of the earlier lists (DiffFLIM v2 and v3cells training lists, test, second test,
+    calibration, extra calibration). Written to data/splits/hpa_val.txt and never rewritten. For
+    choosing settings in future experiments; never used for training, testing or calibration."""
+    if VAL_IDS_FILE.exists():
+        return _read_ids(VAL_IDS_FILE)
+    import torch
+    v3cells = torch.load(ROOT / V3CELLS_TRAIN_IDS[0], map_location="cpu", weights_only=False)["args"]["train_ids"]
+    used = (set(diffflim_v2_train_ids()) | set(v3cells) | set(test_ids(hpa_dir)) | set(calib_ids(hpa_dir))
+            | set(calib_extra_v2_ids(hpa_dir)) | set(test2_ids(hpa_dir)))
+    pool = [i for i in complete_ids(hpa_dir) if i not in used]
+    if len(pool) < N_VAL_IDS:
+        raise RuntimeError(f"Only {len(pool)} unused complete samples; need {N_VAL_IDS}.")
+    chosen = sorted(np.random.default_rng(VAL_SEED).choice(pool, N_VAL_IDS, replace=False).tolist())
+    VAL_IDS_FILE.write_text("\n".join(chosen) + "\n")
+    return chosen
+
+
 def held_out_ids(hpa_dir=HPA_DIR, include_calib_extra=True):
     """IDs that training must not use: test, second test (if it exists), calibration and (if it
     exists) extra calibration. The second test set is always held out."""
     held = set(test_ids(hpa_dir)) | set(calib_ids(hpa_dir))
     if TEST2_IDS_FILE.exists():
         held |= set(_read_ids(TEST2_IDS_FILE))
+    if VAL_IDS_FILE.exists():
+        held |= set(_read_ids(VAL_IDS_FILE))
     if include_calib_extra and CALIB_EXTRA_V2_FILE.exists():
         held |= set(_read_ids(CALIB_EXTRA_V2_FILE))
     return held
@@ -313,8 +349,37 @@ def _load_irf_file(name, cfg):
     return y
 
 
+def _flute_irf_library(n_bins, bin_width_ns):
+    """FLUTE IRF set: the 12 FLIMngo IRFs (native 256 x 0.0977 ns axis) integrated into the FLUTE bins
+    and folded onto one period, plus the Gaussian IRF estimated from Fluorescein_Embryo.tif with
+    tau = 4.0 ns (scripts/flute_fluorescein.py, FLUTE_EMBRYO_IRF_SIGMA_NS). All are stored with their
+    peak in bin 0; make_scene() shifts them circularly to a random peak position."""
+    from src.data.flute import FLUTE_EMBRYO_IRF_SIGMA_NS, FluteConfig, bin_fine, gaussian_irf_fine
+    lib = []
+    period = n_bins * bin_width_ns
+    for item in _irf_library(256, 0.0977, "flimngo"):
+        y = item["irf"]
+        t_edges = np.arange(len(y) + 1) * 0.0977
+        cum = np.concatenate([[0.0], np.cumsum(y)])
+        n_out = int(np.ceil(t_edges[-1] / bin_width_ns))
+        new_edges = np.minimum(np.arange(n_out + 1) * bin_width_ns, t_edges[-1])
+        z = np.diff(np.interp(new_edges, t_edges, cum))
+        z = np.roll(z, -int(np.argmax(z)))                                 # peak to bin 0
+        folded = np.zeros(n_bins)
+        np.add.at(folded, np.arange(len(z)) % n_bins, z)                   # periodic: fold onto one period
+        folded = np.clip(folded, 0, None)
+        lib.append({"id": item["id"], "irf": folded / folded.sum(), "jitter": (0, 0)})
+    fc = FluteConfig(n_bins, bin_width_ns)
+    g = bin_fine(gaussian_irf_fine(fc, period / 2, FLUTE_EMBRYO_IRF_SIGMA_NS), fc)
+    g = np.roll(g, -int(np.argmax(g)))
+    lib.append({"id": "IRF_FLUTE_fluorescein_embryo", "irf": g / g.sum(), "jitter": (0, 0)})
+    return lib
+
+
 @lru_cache(maxsize=4)
-def _irf_library(n_bins, bin_width_ns):
+def _irf_library(n_bins, bin_width_ns, irf_set="flimngo"):
+    if irf_set == "flute":
+        return _flute_irf_library(n_bins, bin_width_ns)
     cfg = SimConfigV3(n_bins=n_bins, bin_width_ns=bin_width_ns)
     lib = []
     for irf_id, src, par, jitter in IRF_LIBRARY:
@@ -327,7 +392,7 @@ def _irf_library(n_bins, bin_width_ns):
 def irf_library(cfg=None):
     """List of {"id", "irf" (T,) summing to 1, "jitter" (early, late)}."""
     cfg = SimConfigV3() if cfg is None else cfg
-    return _irf_library(cfg.n_bins, cfg.bin_width_ns)
+    return _irf_library(cfg.n_bins, cfg.bin_width_ns, cfg.irf_set)
 
 
 def jitter_irf(irf, jitter, rng):
@@ -364,6 +429,12 @@ def multi_exp_curves(amps, taus, irf, cfg):
         y *= r
         y += irf[n]
         np.einsum("cp,cp->p", amps, y, out=out[n])
+    if getattr(cfg, "periodic", False):
+        # Periodic steady state (circular convolution): every bin also receives the decay of all
+        # earlier pulses, r^(n+1) * Y with Y = y[T-1] / (1 - r^T) (y now holds the last bin).
+        Y = y / (1.0 - r ** cfg.n_bins)
+        pw = r[None] ** np.arange(1, cfg.n_bins + 1)[:, None, None]          # (T, C, P)
+        out += np.einsum("cp,tcp->tp", amps * Y, pw)
     out = np.clip(out, 0.0, None)
     return out / out.sum(axis=0, keepdims=True)
 
@@ -449,7 +520,12 @@ def make_scene(rng, cfg, ids, hpa_dir=HPA_DIR, fixed_id=None):
     # IRF with laser jitter
     lib = irf_library(cfg)
     j = int(rng.integers(len(lib)))
-    irf, shift = jitter_irf(lib[j]["irf"], lib[j]["jitter"], rng)
+    if cfg.irf_set == "flute":            # circular shift to a random peak position
+        lo, hi = (int(round(x / cfg.bin_width_ns)) for x in cfg.irf_peak_range_ns)
+        shift = int(rng.integers(lo, hi + 1))
+        irf = np.roll(lib[j]["irf"], shift)
+    else:
+        irf, shift = jitter_irf(lib[j]["irf"], lib[j]["jitter"], rng)
     curves = multi_exp_curves(amps[:, mask], taus[:, mask], irf, cfg)    # (T, P_fg)
     return {"mask": mask, "rel_intensity": rel, "curves": curves, "tau_gt": tau_gt, "tau_int": tau_int,
             "n_components": present.sum(0), "irf": irf, "irf_id": lib[j]["id"], "irf_shift": shift,
@@ -546,6 +622,19 @@ def test_set_dir():
     return RAW_OWN / "sim_v3_test"
 
 
+def flute_config(size=64):
+    """Simulator v3 for the FLUTE instrument (Gottlieb et al. 2023): 56 bins of 0.223 ns, 80 MHz, so
+    the window is one 12.5 ns period and the decay of earlier pulses wraps around (periodic=True);
+    FLUTE IRF set with the peak at 0.3 to 1.8 ns (measured: 0.45 to 1.56 ns); background 2 % of the
+    signal (measured on fluorescein: 0.6 to 1.9 %). Photon levels are set by the caller (training
+    default 10 to 1000 per foreground pixel; FLUTE cell images: median 76 to 263). Base lifetimes
+    0.2 to 5 ns instead of FLIMngo's 0.1 to 10 ns: the FLUTE samples are NAD(P)H autofluorescence
+    (about 0.4 and 2 to 3 ns) and fluorescein (4 ns); with 10 ns most simulated decays were far
+    slower than every real FLUTE decay (preview of 2026-11-23)."""
+    return SimConfigV3(size=size, n_bins=56, bin_width_ns=0.223, periodic=True, irf_set="flute",
+                       tau_base_range=(0.2, 5.0))
+
+
 def calib_set_dir():
     return RAW_OWN / "sim_v3_calib"
 
@@ -590,6 +679,17 @@ def make_test2_set(out_dir=None, levels=TEST_PHOTON_LEVELS, n_per_level=100, see
     """Second fixed, PAIRED v3 test set from the 100 second-test IDs only: test_p{level}.npz in
     data/raw/own/sim_v3_test2/. Reserved for the final evaluation; do not evaluate on it before."""
     return _make_paired_set(test2_set_dir() if out_dir is None else out_dir, "test", test2_ids(), "test2",
+                            levels, n_per_level, seed, force)
+
+
+def val_set_dir():
+    return RAW_OWN / "sim_v3_val"
+
+
+def make_val_set(out_dir=None, levels=TEST_PHOTON_LEVELS, n_per_level=40, seed=VAL_SET_SEED, force=False):
+    """Fixed, PAIRED v3 validation set from the 40 validation IDs only: val_p{level}.npz in
+    data/raw/own/sim_v3_val/. For choosing settings; not a test set."""
+    return _make_paired_set(val_set_dir() if out_dir is None else out_dir, "val", val_ids(), "val",
                             levels, n_per_level, seed, force)
 
 

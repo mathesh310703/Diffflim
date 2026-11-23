@@ -191,16 +191,20 @@ def cosine_alphas_cumprod(n_steps, s=0.008):
 
 class DiffFLIM(nn.Module):
     def __init__(self, base=64, cond_ch=64, n_steps=1000, bg_weight=0.1, prediction="v",
-                 tau_range=DEFAULT_TAU_RANGE):
+                 tau_range=DEFAULT_TAU_RANGE, n_time_bins=256, bin_factor=BIN_FACTOR):
         super().__init__()
         assert prediction in ("v", "eps")
+        assert n_time_bins % bin_factor == 0
         self.tau_range = tuple(float(x) for x in tau_range)
         self.config = {"base": base, "cond_ch": cond_ch, "n_steps": n_steps, "bg_weight": bg_weight,
                        "prediction": prediction, "tau_range": list(self.tau_range)}
+        if (n_time_bins, bin_factor) != (256, BIN_FACTOR):     # older checkpoints keep their config
+            self.config.update(n_time_bins=n_time_bins, bin_factor=bin_factor)
+        self.bin_factor = bin_factor
         self.prediction = prediction
         self.n_steps = n_steps
         self.bg_weight = bg_weight
-        self.encoder = CondEncoder(out_ch=cond_ch)
+        self.encoder = CondEncoder(n_bins=n_time_bins // bin_factor, out_ch=cond_ch)
         self.unet = UNet(in_ch=2 + cond_ch, out_ch=2, base=base)
         self.register_buffer("alphas_cumprod", cosine_alphas_cumprod(n_steps))
 
@@ -250,7 +254,7 @@ class DiffFLIM(nn.Module):
         channel 0 = tau (ns), channel 1 = intensity (signal photons)."""
         device = self.alphas_cumprod.device
         c = torch.as_tensor(np.asarray(counts, dtype=np.float32), device=device)
-        binned = bin_counts(c)[None]
+        binned = bin_counts(c, self.bin_factor)[None]
         g = torch.Generator(device=device)
         g.manual_seed(int(seed) if seed is not None else int(torch.randint(0, 2**31, (1,))))
         batch = batch or n_samples

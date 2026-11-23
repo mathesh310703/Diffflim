@@ -4,7 +4,7 @@
 
 *Last updated: 2026-11-23*
 
-The project has two simulators. Simulator v2 (`src/data/simulate.py`) produces smooth blob-shaped cells with a Gaussian IRF and was used to train DiffFLIM v1. Simulator v3 (`src/data/simulate_v3.py`) follows the FLIMngo simulation (Human Protein Atlas (HPA) crops, up to four lifetime components per pixel, Perlin-noise amplitudes, twelve IRFs with laser jitter) but with real photon counts. Of the 566 complete Human Protein Atlas samples, 30 are fixed test IDs, 100 are a second fixed test set reserved for the final evaluation (nothing has been evaluated on it), 20 are fixed calibration IDs and 54 extra calibration IDs that DiffFLIM v2 never saw; the remaining 362 were training IDs, of which 246 were used by DiffFLIM v2 and the retrained FLIMngo. The download has continued since; every new complete sample becomes a training ID, and each training run stores its list in the checkpoint (DiffFLIM v3cells: 386 IDs). The v3 test set (40 images per level), both v3 calibration sets (100 images per level each) and the second test set (100 images per level) are paired across photon levels.
+The project has two simulators. Simulator v2 (`src/data/simulate.py`) produces smooth blob-shaped cells with a Gaussian IRF and was used to train DiffFLIM v1. Simulator v3 (`src/data/simulate_v3.py`) follows the FLIMngo simulation (Human Protein Atlas (HPA) crops, up to four lifetime components per pixel, Perlin-noise amplitudes, twelve IRFs with laser jitter) but with real photon counts. Of the 566 complete Human Protein Atlas samples, 30 are fixed test IDs, 100 are a second fixed test set reserved for the final evaluation (nothing has been evaluated on it), 20 are fixed calibration IDs and 54 extra calibration IDs that DiffFLIM v2 never saw; the remaining 362 were training IDs, of which 246 were used by DiffFLIM v2 and the retrained FLIMngo. A fixed validation set of 40 further unused samples (`data/splits/hpa_val.txt`, paired set in `data/raw/own/sim_v3_val/`) is used for choosing settings from 23 November 2026 on. The download has continued since (718 complete samples on 23 November); every new complete sample that is in no fixed list becomes a training ID, and each training run stores its list in the checkpoint (DiffFLIM v3cells: 386 IDs). The v3 test set (40 images per level), both v3 calibration sets (100 images per level each) and the second test set (100 images per level) are paired across photon levels.
 
 DiffFLIM v2 (v1 architecture, trained on v3 data) is the most accurate lifetime estimator on the v3 test set at every photon level. In the main comparison every method gets the same information: FLIMngo uses a background mask computed from the counts (`flimngo_recall`, 98 to 100 % of the true foreground on the test set), DiffFLIM and the MLE get no mask. DiffFLIM is evaluated with 10 DDIM steps and 10 samples (0.11 s per image), which gives the same error and coverage as 50 steps. Lifetime error (median absolute relative error, all foreground pixels, 40 images per level):
 
@@ -22,13 +22,15 @@ First real data: on FLIMngo's 12 raw *C. elegans* recordings (1 s, 10 to 49 phot
 
 More training cells did not help measurably. DiffFLIM v3cells, the DiffFLIM v2 run repeated on 386 instead of 246 training cells with the same settings and the same 186,116 steps, had the same lifetime error on the v3 test set (9.43 / 6.51 / 4.40 % at 10 / 100 / 1000 photons against 9.54 / 6.53 / 4.27 %; paired differences within ±0.1 percentage points except −0.36 at 10 photons, interval −0.91 to +0.02), the same calibrated coverage (90.1 and 87.6 %) and, on the real recordings, the same group difference (0.34 against 0.35 ns, both groups about 0.09 ns higher; p = 0.0043 against 0.0087) and a similar split-half difference (2.8 against 3.4 %). Doubling the training steps reduced the lifetime error by about 0.5 percentage points for both cell counts.
 
-Longer training helps on simulated data, but the gain levels off. DiffFLIM v2 long, the DiffFLIM v2 run resumed for 300 more minutes (349,713 steps, 660 minutes in total; same cells and settings), has a lifetime error of 9.46 / 6.34 / 3.94 % at 10 / 100 / 1000 photons (v2: 9.54 / 6.53 / 4.27 %); in paired tests the pooled lifetime error is 0.31 percentage points lower (interval −0.55 to −0.15) and the intensity error 0.18 points lower, with unchanged coverage. All of the gain came before step 279,000 (−0.30 points); the last 71,000 steps changed nothing measurable (−0.02, interval −0.09 to +0.06). On the real recordings v2 long was not better: group difference 0.31 against 0.35 ns (p = 0.0152 against 0.0087) and split-half difference 4.3 against 3.4 %, mostly in the dimmer Aβ-mScarlet recordings (5.8 against 4.2 %). DiffFLIM v2 (6 h) remains the model of the main comparison; whether to switch to v2 long is open.
+Longer training helps on simulated data, but the gain levels off. DiffFLIM v2 long, the DiffFLIM v2 run resumed for 300 more minutes (349,713 steps, 660 minutes in total; same cells and settings), has a lifetime error of 9.46 / 6.34 / 3.94 % at 10 / 100 / 1000 photons (v2: 9.54 / 6.53 / 4.27 %); in paired tests the pooled lifetime error is 0.31 percentage points lower (interval −0.55 to −0.15) and the intensity error 0.18 points lower, with unchanged coverage. All of the gain came before step 279,000 (−0.30 points); the last 71,000 steps changed nothing measurable (−0.02, interval −0.09 to +0.06). On the real recordings v2 long was not better: group difference 0.31 against 0.35 ns (p = 0.0152 against 0.0087) and split-half difference 4.3 against 3.4 %, mostly in the dimmer Aβ-mScarlet recordings (5.8 against 4.2 %). The author decided to keep DiffFLIM v2 (6 h) as the model of the main comparison (see Decisions): longer training is saturated on simulated data, and the slightly worse real-data results point to the gap between simulation and real data.
+
+Real data with a known lifetime: the FLUTE example files (Gottlieb et al. 2023) contain raw Poisson photon counts (56 bins of 0.223 ns covering one 12.5 ns period, so the decay of earlier pulses wraps around). With an IRF estimated on the other file, Fluorescein_Embryo gives 4.0 ns as stated, but Fluorescein_hMSC gives 3.6 ns with every method. Thinned to 10 photons per pixel, the MLE stays within 3 % of the full-photon value (spread 46 %), the binned MLE within 0.2 % (spread 8.5 %), the phasor is 31 % too low, and the pretrained FLIMngo is not usable on this time axis. DiffFLIM has not been applied to FLUTE data; a FLUTE configuration of simulator v3 (`flute_config()`) and the training option `--simulator v3flute` are ready and tested, and an overnight command is prepared but not started.
 
 A hallucination test found no invented structure: on images with a uniform lifetime DiffFLIM's maps vary by 2 to 3 % of τ (binned MLE 9 % at 10 photons), do not follow the intensity, and DiffFLIM invents fewer small features than every baseline except at 50 photons (pretrained FLIMngo 0.7 against 1.0 % of pixels). At low photon counts DiffFLIM smooths: at 10 photons it keeps 62 % of the small true features at 58 % of their amplitude, overestimates 1 ns lifetimes by 10 %, and 8.4 % of the pixels are confident errors (error above 20 % and outside the 90 % interval; 2.9 % at 1000 photons). Under FLIMngo's own protocol (MSE per image in ns², its photon conditions, IRF widths of 216, 402 and 796 ps) DiffFLIM v2 has the lowest median MSE in all 21 conditions and is better than each baseline on 95 to 100 % of the images.
 
 Open problems:
 
-- The calibration of DiffFLIM cannot be checked on the *C. elegans* data (no ground truth); a real sample with a known lifetime is needed.
+- The calibration of DiffFLIM cannot be checked on the *C. elegans* data (no ground truth); the FLUTE fluorescein files can serve once a 56-bin DiffFLIM model exists, but Fluorescein_hMSC does not show the stated 4.0 ns.
 - Every DiffFLIM setting has been trained once with one seed; the variation between runs is unknown, so differences of a few tenths of a percentage point between versions cannot be interpreted.
 - The longer-trained DiffFLIM v2 long is more accurate on simulated data but less consistent between photon halves of the real Aβ-mScarlet recordings; the reason is unknown.
 - DiffFLIM smooths small structures at low photon counts, and its intensity uncertainty does not indicate where the intensity error is large above 100 photons.
@@ -39,7 +41,7 @@ Open problems:
 
 A technical report that explains the system, every code file and every result file is available in `docs/TECHNICAL_REPORT.md` and `docs/TECHNICAL_REPORT.pdf`; `results/README.md` describes every figure and table.
 
-Next steps: decide whether DiffFLIM v2 long replaces v2 as the main model, measure the run-to-run variation with a second seed, test the methods on a real sample with a known lifetime (FLUTE fluorescein, thinned), retrain FLIMngo once with weight averaging, and keep the second test set untouched until the final evaluation.
+Next steps: measure the run-to-run variation with a second seed, train and evaluate a DiffFLIM model for the FLUTE instrument (simulator configuration ready, overnight command prepared), retrain FLIMngo once with weight averaging, and keep the second test set untouched until the final evaluation.
 
 ## Decisions
 
@@ -78,6 +80,10 @@ Next steps: decide whether DiffFLIM v2 long replaces v2 as the main model, measu
 **Real data are evaluated with a fixed protocol.** The evaluation on FLIMngo's *C. elegans* recordings is defined once in `scripts/eval_real_celegans.py` (mask, background estimate, IRF alignment, tiling, calibration factor, statistics, seeds, example recordings and display ranges) and is not tuned on its results. Later models are evaluated with the same script (`--ckpt`, `--tag`, `--factors`); result files carry the model tag. The split-half fractions of DiffFLIM's intervals are interpreted only against the same analysis on simulated data with known truth, because the halves of one recording share the same truth.
 
 **Coverage uncertainty is reported at the level of cells.** Images of the same HPA cell are not independent (same crop source, and the same scene at every photon level in the paired sets). Confidence intervals for coverage therefore resample test cells (`hpa_id`), and the joint interval also resamples the calibration cells and refits the factors. Image-level bootstrap intervals in earlier entries are about half as wide and too optimistic.
+
+**DiffFLIM v2 (6 h) stays the main model.** On 23 November 2026 the author decided to keep DiffFLIM v2 (6 h, 186,116 steps) as the model of the main comparison and not to switch to DiffFLIM v2 long. Longer training is saturated on simulated data: from step 279,000 (about 9 h) to step 349,713 (about 11 h) the lifetime error did not change (−0.02 percentage points, interval −0.09 to +0.06), and the total gain over v2 was 0.31 points. On the real *C. elegans* recordings v2 long was slightly worse (group difference 0.31 against 0.35 ns, split-half difference 4.3 against 3.4 %). This points to the gap between the simulation and real data, not to the training length, as the factor that now limits DiffFLIM; further effort goes into data that are closer to real measurements (real samples with a known lifetime, an instrument-matched simulator) rather than into longer training.
+
+**A validation set for choosing settings.** Until now, settings were chosen on the test set or on the calibration set. On 23 November 2026, 40 HPA samples that no model, calibration or data set had used were fixed as a validation set (`data/splits/hpa_val.txt`, seed 2029, never rewritten) with a paired validation set of 40 images per photon level (`data/raw/own/sim_v3_val/`). Future choices of settings (sampler, loss, simulator variants) are made on this set; the test sets are only used to report the chosen setting.
 
 ## Log
 
@@ -1151,3 +1157,221 @@ Compared to before: the first resumed training run and the longest DiffFLIM trai
 Problems and fixes: While testing that a run refuses to start when `STOP` exists, the author removed `STOP` too early, so a 1-minute test run named `x` started and resumed from a smoke-test checkpoint. Its checkpoint, log and status file were deleted; because that checkpoint contained its training IDs, `data/splits/hpa_train.txt` was not written. The run was faster than expected (9.1 instead of about 8.6 iterations per second, because the GPU waited less for data), so it reached step 349,713 rather than the estimated 341,000, and the snapshot step 279,000 corresponds to 530 instead of 540 minutes; the tag `v2long_9h` was kept. With six models, the x labels of panels (e) and (f) of `versions.png` overlapped; they were shortened to the model and the step. The real-data results are based on 12 recordings and cannot separate a real change from the variation between training runs.
 
 Next: decide whether DiffFLIM v2 long replaces v2 as the main model (more accurate on simulated data, less consistent on the real recordings), train one setting with a second seed to measure the variation between runs, and test the models on a real sample with a known lifetime.
+
+### 2026-11-23 – Decision: DiffFLIM v2 (6 h) remains the main model
+
+Goal: Record the decision about the main model after the v2 long run.
+
+Changes:
+
+- `docs/PROJECT_LOG.md`: new paragraph in "Decisions"; "Current status" updated.
+
+Settings: none (no code, data or model changed).
+
+Results: The author decided to keep DiffFLIM v2 (6 h) as the model of the main comparison. DiffFLIM v2 long is saturated on simulated data (no gain from step 279,000 to step 349,713) and was slightly worse on the real *C. elegans* recordings; this points to the gap between simulation and real data rather than to the training length.
+
+Compared to before: the question left open in the previous entry is closed.
+
+Problems and fixes: none.
+
+Next: a validation set for choosing settings, and real data with a known lifetime (FLUTE fluorescein).
+
+### 2026-11-23 – Validation set of 40 unused HPA cells
+
+Goal: Create a fixed validation set for choosing settings in future experiments, so that neither the test sets nor the calibration sets are used for such choices.
+
+Changes:
+
+- `src/data/simulate_v3.py`: `val_ids()` (draws the IDs once and writes `data/splits/hpa_val.txt`; never rewritten), constants `VAL_IDS_FILE`, `N_VAL_IDS = 40`, `VAL_SEED = 2029`, `VAL_SET_SEED = 71000`, `val_set_dir()` and `make_val_set()`; `held_out_ids()` now also excludes the validation IDs, so `train_ids()` can never return them.
+- `data/splits/hpa_val.txt` (new, 40 IDs) and `data/raw/own/sim_v3_val/val_p{10,20,50,100,500,1000}.npz` (new, 48 MB, git-ignored like all of `data/raw/`).
+- `logs/make_val_set.txt`.
+
+Settings:
+
+- Pool: the complete HPA samples that are in none of the earlier lists: DiffFLIM v2 training (246), DiffFLIM v3cells training (386, read from `checkpoints/diffflim_v3cells.pt`; identical to `data/splits/hpa_train.txt`), test (30), second test (100), calibration (20) and extra calibration (54). Of the 718 complete samples, 128 were unused; 40 were drawn with seed 2029.
+- Paired validation set: same generator as the test set (`_make_paired_set`), 40 scenes (scene seed 71000, noise seed 71000 + level) at 10, 20, 50, 100, 500 and 1000 photons per foreground pixel, built only from the validation IDs. Command: `python -c "from src.data.simulate_v3 import make_val_set; make_val_set()"` (about 1 minute).
+
+Results: The 40 validation IDs overlap with none of the other lists (checked against both training lists, test, second test, calibration and extra calibration). Updated split counts: 718 complete samples; 30 test, 100 second test, 20 calibration, 54 extra calibration and 40 validation IDs (244 held out); 386 IDs used by DiffFLIM v3cells (including the 246 of DiffFLIM v2); 88 further unused samples. `train_ids()` now returns 474 IDs (386 + 88); `data/splits/hpa_train.txt` was not changed (it is only written at the start of a training run).
+
+Compared to before: settings can now be chosen on cells that are neither test nor calibration cells.
+
+Problems and fixes: none. The second test set was not read except for its ID list, which is needed to exclude its cells.
+
+Next: inspection of the FLUTE data.
+
+### 2026-11-23 – Inspection of the FLUTE data
+
+Goal: Check whether the six FLUTE example files (Gottlieb et al. 2023, Zenodo record 8046636, CC BY 4.0; copied into `data/raw/flute/` by the author) contain raw photon counts that can be thinned and modelled with Poisson noise, and measure their photon levels, time axis and decay shape before any method is applied.
+
+Changes:
+
+- `src/data/flute.py` (new): `load_flute(name)` returns a file as an integer array (time bins, height, width); constants for the stated instrument (56 bins of 0.223 ns, 12.5 ns period at 80 MHz, fluorescein lifetime 4.0 ns).
+- `scripts/inspect_flute.py` (new): `results/tables/real_flute_inspection.csv` and `results/figures/real_flute_decays.png`.
+
+Settings: all pixels of every file; photons per pixel are the counts summed over the 56 bins. Poisson check: for horizontally adjacent pixels, the variance of the difference divided by the mean of the sum, pooled over all bins (1 for Poisson counts with equal expectation).
+
+Results: All six files are multi-page TIFFs (ImSpector, OME metadata) with one page per time bin: 56 × 512 × 512 pixels (hMSC-ZOOM: 56 × 256 × 256), unsigned 16-bit integers. The OME metadata give a bin size of 0.222909 ns, which confirms the stated 0.223 ns; 56 bins cover 12.48 ns, i.e. the whole 12.5 ns laser period. The values are integer photon counts and are not normalised (largest count per bin 9 in Fluorescein_Embryo and 713 in hMSC control).
+
+| File | Photons per pixel, median (10th–90th percentile) | Peak of the summed decay | Level before the rise / at the end (% of peak) | Poisson check |
+|---|---|---|---|---|
+| Fluorescein_Embryo.tif | 20 (12–29) | bin 7, 1.56 ns | 6.2 / 7.5 | 1.00 |
+| Fluorescein_hMSC.tif | 721 (638–790) | bin 3, 0.67 ns | 4.5 / 4.6 | 1.01 |
+| Embryo.tif | 85 (5–280) | bin 6, 1.34 ns | 0.9 / 0.8 | 1.42 |
+| hMSC control.tif | 76 (39–241) | bin 2, 0.45 ns | 3.2 / 2.7 | 2.68 |
+| hMSC-ZOOM.tif | 263 (99–488) | bin 2, 0.45 ns | 2.8 / 2.3 | 2.55 |
+| hMSC_rotenone.tif | 92 (43–291) | bin 2, 0.45 ns | 3.0 / 2.4 | 2.79 |
+
+The files come from two acquisition settings with different time offsets: in the two embryo files the decay rises at bin 5 and peaks at 1.3 to 1.6 ns, in the four hMSC files it rises at bin 1 to 2 and peaks at 0.45 to 0.67 ns, so in the hMSC files the rising edge of the IRF lies in the first two or three bins. The level before the rise is about equal to the level at the end of the window in every file. For a 4 ns lifetime and a 12.5 ns period, the part of the decay that has not yet decayed when the next pulse arrives is exp(−12.5 / 4) = 4.4 % of the starting amplitude, and the sum of the tails of all earlier pulses adds about 4.6 % of the peak to every bin; the measured 4.5 to 7.5 % in the fluorescein files therefore consists mostly of this wrapped tail of the previous pulses and only a small constant background. The decay is thus not cut but folded: a correct model must be periodic (include the tails of earlier pulses), not truncated as in simulator v3. On the uniform fluorescein images the Poisson check gave 1.00 and 1.01, as expected for independent Poisson counts. In the cell images it gave 1.4 to 2.8, because neighbouring pixels at structures differ in their expected counts; this does not indicate over-dispersion.
+
+![FLUTE decays and photon distributions](../results/figures/real_flute_decays.png)
+
+The counts are raw photon counts with Poisson statistics, so binomial thinning (each photon kept with probability p) produces valid lower-photon data, and a Poisson likelihood is the correct noise model. Two limits follow from the photon levels: Fluorescein_Embryo has only about 20 photons per pixel, so it can be thinned only to about 10; Fluorescein_hMSC (about 720 per pixel) supports thinning to 10 to 500 photons.
+
+Compared to before: the first real data with a known lifetime in the project.
+
+Problems and fixes: `tifffile` is not installed; Pillow reads the multi-page TIFFs correctly (56 pages each), so no package was installed.
+
+Next: estimate the IRF from one fluorescein file and test it on the other, and fit the full-photon fluorescein images with the classical methods.
+
+### 2026-11-23 – FLUTE fluorescein at full photon counts: IRF transfer and classical fits
+
+Goal: Use the two fluorescein files of FLUTE as samples with a known lifetime (stated: 4.0 ns), with an IRF that is not derived from the file being tested, and check whether the classical methods recover the lifetime and give flat maps.
+
+Changes:
+
+- `src/data/flute.py`: periodic forward model for the FLUTE instrument (`FluteConfig`, `gaussian_irf_fine`, `periodic_decays`, `PeriodicDecayModel` as `decay_fn` for the MLE, `rise_time`, `binomial_thin`).
+- `scripts/flute_fluorescein.py` (new): parts b and c (next entry); `results/tables/real_flute_irf.csv`, `results/tables/real_flute_fluorescein.csv`, `results/figures/real_flute_fluorescein_fit.png`, `results/figures/real_flute_fluorescein_maps.png`; log `logs/flute_fluorescein.txt` (407 s in total).
+
+Settings:
+
+- Forward model: the decay of each pulse is exp(−t / τ); because the 56 bins cover exactly one period, every bin also contains the tails of all earlier pulses, exp(−(t mod P) / τ) / (1 − exp(−P / τ)) with P = 56 × 0.223 = 12.48 ns. This is convolved circularly with a wrapped Gaussian IRF (centre t0, width σ) on a grid of 10 sub-samples per bin and integrated over each bin; a constant background b per bin is added. Poisson likelihood.
+- IRF estimate (non-circular): for file A, the summed decay of all pixels was fitted with τ fixed at 4.0 ns (free: t0, σ, b, intensity). For the other file B, σ was kept and t0 moved by the difference of the half-maximum rise times of the two summed decays, which are measured directly from the data without a model. The lifetime of B is not used anywhere. Done in both directions.
+- On B: a global fit of the summed decay (τ, b and intensity free; IRF from A), and per-pixel fits with the IRF from A and the background per pixel b / number of pixels: MLE (τ bounds 0.1 to 20 ns), binned MLE 5 × 5 (2-pixel border excluded from the statistics) and phasor (IRF correction with the binned IRF; continuous phase lifetime τ = s / (g ω), ω = 2π / 12.48 ns, which applies because the IRF correction removes the bin integration).
+- Checks, not used for the results: the IRF of each file from itself (circular) and a fit with τ, t0, σ and b all free.
+- Map statistics: median lifetime, median relative error against 4.0 ns, spatial spread (0.7413 × interquartile range, relative to the median), invalid pixels, Spearman correlation between lifetime and intensity.
+
+Results: The two files were recorded with different time offsets (half-maximum rise at 1.20 ns in Fluorescein_Embryo and 0.44 ns in Fluorescein_hMSC, difference 0.76 ns) and different IRF widths: σ = 0.150 ns (full width at half maximum 0.35 ns) from Fluorescein_Embryo with τ = 4.0 ns, and σ = 0.100 ns from Fluorescein_hMSC with τ = 4.0 ns, where the fit pushed the background to zero.
+
+| File analysed | IRF from | Global fit τ | Free fit τ (check) | Background (% of counts) |
+|---|---|---|---|---|
+| Fluorescein_Embryo | Fluorescein_hMSC | 4.04 ns | 3.99 ns | 1.8 % |
+| Fluorescein_hMSC | Fluorescein_Embryo | 3.61 ns | 3.60 ns | 0.6 % |
+
+Fluorescein_Embryo agreed with the stated 4.0 ns (4.04 ns with the transferred IRF, 3.99 ns with all parameters free). Fluorescein_hMSC did not: with the IRF from the other file, with its own IRF and with all parameters free, its single-exponential lifetime was 3.60 to 3.67 ns, about 10 % below 4.0 ns. Its summed decay is a straight line on a log axis over the whole period (`real_flute_fluorescein_fit.png`), so it is a clean single exponential with τ ≈ 3.6 ns; the difference is in the sample or the instrument, not in the IRF method. A fluorescein lifetime of 3.6 ns is possible for a different pH or solvent, but the record states 4 ns for both files; the cause cannot be decided from the data.
+
+| File, full photons | Photons per pixel | MLE | Binned MLE 5 × 5 | Phasor |
+|---|---|---|---|---|
+| Fluorescein_Embryo: median τ (spread) | 20 | 4.00 ns (34 %) | 4.04 ns (6.6 %) | 3.16 ns (88 %) |
+| Fluorescein_hMSC: median τ (spread) | 716 | 3.61 ns (5.1 %) | 3.61 ns (1.1 %) | 3.54 ns (12 %) |
+
+The per-pixel MLE and the binned MLE reproduced the global value in both files (4.00 and 4.04 ns; 3.61 ns) and gave flat maps whose spread matches the photon count (34 % at 20 photons for the MLE, 6.6 % binned; 5.1 % and 1.1 % at 716 photons). The phasor was 2 % below the MLE at 716 photons but 21 % below at 20 photons, with a very large spread; at low counts the phase lifetime of single pixels is dominated by noise in the denominator g, and its median is biased. The lifetime was hardly correlated with the intensity (Spearman −0.01 to +0.15), except for the binned MLE on Fluorescein_hMSC (+0.29), where the remaining spread is only 1.1 % and a weak intensity dependence of about 1 % becomes visible. At the right edge of Fluorescein_Embryo, a few columns differ from the rest in all methods (`real_flute_fluorescein_maps.png`); they were not removed.
+
+Compared to before: the first real data with a reference lifetime; the classical fits recover it for one file and find 3.6 ns for the other.
+
+Problems and fixes: The plain phasor formula for point-sampled decays (`point_sampled=True`) would have been wrong here, because the IRF correction with the bin-integrated IRF already removes the effect of the bin width; the continuous formula was used. The stated 4.0 ns cannot be used as the truth for Fluorescein_hMSC; the thinning test therefore uses the full-photon estimate of the same file (3.61 ns) as the reference in addition to 4.0 ns.
+
+Next: thinning of the fluorescein files.
+
+### 2026-11-23 – FLUTE fluorescein thinned to 10 to 500 photons per pixel
+
+Goal: Test the classical methods on real low-photon data with a uniform, known lifetime, which is at the same time a real-data version of the uniform-lifetime part of the hallucination test.
+
+Changes:
+
+- `scripts/flute_fluorescein.py` (part c): rows with `condition` 10, 20, 50, 100, 500 in `results/tables/real_flute_fluorescein.csv`; `results/figures/real_flute_thinning.png`.
+
+Settings: binomial thinning of every photon with p = level / mean photons per pixel (Fluorescein_hMSC, 716 photons: levels 10, 20, 50, 100, 500; Fluorescein_Embryo, 20 photons: level 10 only), seed 5000 + level, background scaled by p, the IRF transferred from the other file (previous entry), full 512 × 512 images. The data are Poisson (previous entries), so thinned data have the same statistics as a shorter acquisition.
+
+Results: Fluorescein_hMSC, median lifetime and spatial spread (reference: 3.61 ns, the full-photon value; the stated value would be 4.0 ns):
+
+| Photons per pixel | MLE | Binned MLE 5 × 5 | Phasor |
+|---|---|---|---|
+| 10 | 3.51 ns (−2.8 %), spread 46 % | 3.60 ns (−0.2 %), 8.5 % | 2.48 ns (−31 %), 104 % |
+| 20 | 3.56 ns (−1.4 %), 31 % | 3.61 ns (−0.1 %), 6.0 % | 3.10 ns (−14 %), 75 % |
+| 50 | 3.59 ns (−0.5 %), 19 % | 3.61 ns (0.0 %), 3.8 % | 3.49 ns (−3.3 %), 48 % |
+| 100 | 3.60 ns (−0.2 %), 14 % | 3.61 ns (0.0 %), 2.7 % | 3.53 ns (−2.2 %), 33 % |
+| 500 | 3.61 ns (0.0 %), 6.1 % | 3.61 ns (0.0 %), 1.3 % | 3.54 ns (−2.0 %), 14 % |
+
+Fluorescein_Embryo at 10 photons: MLE 3.94 ns (spread 51 %), binned MLE 4.04 ns (9.4 %), phasor 2.34 ns (129 %). Relative to the stated 4.0 ns, all Fluorescein_hMSC values are about 10 % lower (`real_flute_fluorescein.csv` reports the error against 4.0 ns). The MLE spread fell roughly as one over the square root of the photon count (46 % at 10, 14 % at 100, 6.1 % at 500), as expected for photon noise; the binned MLE was 5 to 6 times flatter at every level and stayed unbiased down to 10 photons. No method produced structure related to the intensity at low photon counts (Spearman −0.01 to +0.17). The phasor was strongly biased towards short lifetimes below 50 photons.
+
+Compared to before: on real data with a known, uniform lifetime the classical methods behave as on the simulated uniform-lifetime test: the MLE is unbiased but noisy, the binned MLE is flat, the phasor fails at low counts. These numbers are the real-data reference for DiffFLIM once a model for the FLUTE time axis exists.
+
+Problems and fixes: Fluorescein_Embryo has only 20 photons per pixel, so only one thinned level was possible. Thinning 512 × 512 images with the MLE took about 47 s per level.
+
+Next: the FLUTE configuration of simulator v3 and a smoke test of DiffFLIM training on it.
+
+### 2026-11-23 – FLUTE configuration of simulator v3 and a smoke test of DiffFLIM training on it
+
+Goal: Prepare a simulator for the FLUTE instrument, so that a DiffFLIM model can be trained for the FLUTE time axis (the current models expect 256 bins of 0.0977 ns and are not applied to FLUTE data), test it, compare it with the real FLUTE data, and check that training runs.
+
+Changes:
+
+- `src/data/simulate_v3.py`: `SimConfigV3` has three new fields with defaults that leave the FLIMngo configuration unchanged: `periodic` (False), `irf_set` ("flimngo") and `irf_peak_range_ns` ((0.3, 1.8)). With `periodic=True`, `multi_exp_curves` adds the decay of all earlier pulses (circular convolution; exact for the point-sampled v3 model). `irf_set="flute"` uses `_flute_irf_library()`: the 12 FLIMngo IRFs integrated into 0.223 ns bins and folded onto one period, plus the Gaussian IRF estimated from Fluorescein_Embryo.tif (σ = 0.150 ns, `FLUTE_EMBRYO_IRF_SIGMA_NS` in `src/data/flute.py`), 13 IRFs in total, stored with the peak in bin 0 and shifted circularly in `make_scene` so that the peak lies uniformly between 0.3 and 1.8 ns. `flute_config()` returns the FLUTE configuration: 56 bins of 0.223 ns, periodic, FLUTE IRF set, base lifetimes 0.2 to 5 ns, background 2 % of the signal.
+- `src/models/diffflim.py`: `DiffFLIM` takes `n_time_bins` and `bin_factor` (defaults 256 and 8); they are written into the checkpoint configuration only when they differ from the defaults, so older checkpoints load unchanged.
+- `src/data/stream.py`: `SimStream` takes `bin_factor`.
+- `scripts/train_diffflim.py`: `--simulator v3flute` (flute_config(), 56 bins summed in pairs to 28 input channels; the sampling check is skipped because no FLUTE test set exists).
+- `tests/test_flute.py` (new, 7 tests): loader, wrapped level of the periodic model, interpolated model, rise time and thinning, equality of the periodic v3 model with an FFT circular convolution for an IRF that wraps around the window, unchanged FLIMngo defaults (12 IRFs, 256 bins), and a FLUTE sample (shape, IRF peak position, photon level). All passed.
+- `scripts/flute_sim_preview.py` (new): `results/figures/real_flute_sim_preview.png`.
+- `scripts/train_flute_overnight.sh` (new): the prepared overnight command (not started).
+
+Settings: preview with 200 simulated images (scene seed 7300, photon level log-uniform 10 to 1000 per foreground pixel, training IDs). Smoke test: `python scripts/train_diffflim.py --simulator v3flute --ids-file data/splits/hpa_train.txt --minutes 2 --name smoke_flute --batch 16 --lr 2e-4 --warmup 500 --ema 0.999 --base 64 --prediction v --ckpt-every 1 --workers 8 --seed 0`; `--ids-file` was used so that `data/splits/hpa_train.txt` was not rewritten.
+
+Results: With the default FLIMngo configuration, a sample generated with the changed code was identical to one from the previous version of `simulate_v3.py` (same counts and ground truth for the same seed). Photon levels matched the real cell images: the simulated foreground pixels had a median of 112 photons, the real cell files 76 to 263 (Embryo 85, with many background pixels of 1 to 5 photons). The measured background of 0.6 to 1.9 % of the signal is covered by the 2 % of v3. In the first version of the preview, which used FLIMngo's base lifetimes of 0.1 to 10 ns, almost all simulated decays were much slower than every real FLUTE decay; the real cell images (NAD(P)H autofluorescence) fall to 10 % of their peak within 2 to 4 ns. The author therefore narrowed the base lifetimes to 0.2 to 5 ns, a choice based on the known samples (NAD(P)H about 0.4 and 2 to 3 ns, fluorescein 4 ns), not a fit to the images. With this range the simulated decays cover the real ones, but most are still slower than the real cell decays, which are dominated by a short component. The smoke test ran without errors: 1,615 steps in 2 minutes (about 16 iterations per second, twice the speed of v3 because the input has fewer bins), loss from 0.59 to 0.046, peak GPU memory 1.0 GB. Sampling from the smoke checkpoint gave finite maps of the right shape (4 samples of 2 × 64 × 64), and `checkpoints/diffflim_v2.pt` still loaded and sampled with the changed code. The smoke outputs were deleted afterwards (the checkpoint had to be made twice, because the first one was deleted before the sampling check finished).
+
+![FLUTE simulator against the real cell images](../results/figures/real_flute_sim_preview.png)
+
+Prepared overnight command (not started), in `scripts/train_flute_overnight.sh`:
+
+```
+python -W ignore scripts/train_diffflim.py --simulator v3flute --minutes 360 --name diffflim_flute_v1 \
+    --snapshot-at 180 --batch 16 --lr 2e-4 --warmup 500 --ema 0.999 --base 64 --prediction v \
+    --ckpt-every 15 --workers 16 --seed 0
+```
+
+Without `--ids-file` this writes the 474 current training IDs to `data/splits/hpa_train.txt` (the 386 of v3cells plus 88 samples downloaded since).
+
+Compared to before: the simulator can now produce data for a second instrument with a different time axis, period and IRF; the FLIMngo configuration is unchanged.
+
+Problems and fixes: The lifetime range of the FLIMngo configuration did not match the FLUTE samples (see above). Before an overnight run the author should decide whether the lifetime prior should be closer to the cell data (for example two components with a short NAD(P)H-like lifetime), because most simulated decays are still slower than the real ones. There is no FLUTE validation or test set and no evaluation chain for 56-bin models yet; the existing post-training chain works only for the 256-bin v3 sets.
+
+Next: build a paired FLUTE validation set from the validation IDs and an evaluation on thinned fluorescein; check whether the pretrained FLIMngo can be applied to the FLUTE data.
+
+### 2026-11-23 – Pretrained FLIMngo on the FLUTE fluorescein images
+
+Goal: Check whether the pretrained FLIMngo can be applied to FLUTE data (56 bins instead of 256) and how it does on fluorescein.
+
+Changes:
+
+- `scripts/flute_flimngo.py` (new): `results/tables/real_flute_flimngo.csv`.
+
+Settings: FLIMngo's own recipe for other time axes (`external/FLIMngo/demo_notebooks/predict_diff_time_dimensions.ipynb`): each decay normalised to its maximum, the time axis interpolated linearly to 256 bins (`zoom`, order 1, as `resize_data_tdim`), and the resized bin width (55 × 0.223 / 255 = 0.0481 ns, as `resize_time`) given to the network, which scales its output by bin width / 0.09765625. The 512 × 512 images were processed as 64 tiles of 64 × 64 pixels, without a mask (fluorescein fills the image). The same full-photon and thinned data as in the classical evaluation (same p, seeds 5000 + level). As a diagnostic only, the full-photon data were also shifted circularly (allowed because the data are periodic) so that the half-maximum rise lies at 2.0 ns, as in FLIMngo's training data.
+
+Results:
+
+| File | Condition | FLIMngo median τ | Spread | Classical reference |
+|---|---|---|---|---|
+| Fluorescein_Embryo | full (20 photons) | 2.28 ns | 40 % | 4.0 ns |
+| Fluorescein_Embryo | 10 photons | 2.19 ns | 47 % | 4.0 ns |
+| Fluorescein_hMSC | full (716 photons) | 0.44 ns | 28 % | 3.61 ns |
+| Fluorescein_hMSC | 10 / 20 / 50 / 100 / 500 photons | 0.95 / 0.87 / 0.76 / 0.68 / 0.48 ns | 20 to 26 % | 3.61 ns |
+| Fluorescein_Embryo | full, rise shifted to 2 ns (+4 bins) | 2.43 ns | 40 % | 4.0 ns |
+| Fluorescein_hMSC | full, rise shifted to 2 ns (+7 bins) | 2.94 ns | 6.1 % | 3.61 ns |
+
+The pretrained FLIMngo can be run on FLUTE data with its own resampling recipe, but its lifetimes are wrong by 40 to 88 %: 2.3 ns instead of 4.0 ns for Fluorescein_Embryo and 0.4 ns instead of 3.6 ns for Fluorescein_hMSC, where the estimate even moved further from the reference as the photon count increased. Moving the rise of the decay to 2 ns changed Fluorescein_hMSC from 0.44 to 2.94 ns and Fluorescein_Embryo only from 2.28 to 2.43 ns. The position of the IRF in the window is therefore one cause (in Fluorescein_hMSC the IRF lies in the first bins, which FLIMngo never saw), but not the only one: after resizing, the decay of a 12.5 ns period fills the whole 256-bin input, and the wrapped tail of earlier pulses gives a level of 5 to 7 % of the peak before the rise, whereas FLIMngo was trained on truncated 25 ns windows whose decays start from zero.
+
+Compared to before: on the *C. elegans* recordings, which have FLIMngo's own time axis, the pretrained FLIMngo agreed with the classical methods; on FLUTE data with a different time axis and period it does not.
+
+Problems and fixes: the shifted versions are a diagnostic, not a fair way to apply FLIMngo, and are marked as such in the table. A fair FLIMngo baseline on FLUTE would need retraining on FLUTE-like data (for example the FLUTE configuration of simulator v3), which was not done.
+
+Next: summary of the day and the plan for the overnight run.
+
+### 2026-11-23 – Where the author stopped and what is next
+
+All daytime tasks of 23 November were finished by 10:15: the decision to keep DiffFLIM v2 (6 h), the validation set, the inspection of the FLUTE files, the IRF transfer and classical fits on fluorescein, the thinning test, the FLUTE configuration of simulator v3 with tests, preview and a 2-minute smoke test, and the check of the pretrained FLIMngo. Nothing is running and no file is in an intermediate state; the smoke-test outputs were deleted.
+
+Next, in this order:
+
+- Decide on the lifetime prior of the FLUTE simulator before the overnight run (most simulated decays are slower than the real cell decays; a short NAD(P)H-like component could be added).
+- Start `bash scripts/train_flute_overnight.sh` (about 6 hours; it writes the 474 current training IDs to `data/splits/hpa_train.txt`).
+- Build a paired FLUTE validation set from the validation IDs and an evaluation of 56-bin DiffFLIM models on thinned fluorescein, with Fluorescein_Embryo against 4.0 ns and Fluorescein_hMSC against its full-photon value of 3.61 ns.
+- Clarify why Fluorescein_hMSC gives 3.6 ns (FLUTE paper or authors).

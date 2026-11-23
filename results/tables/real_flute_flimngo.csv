@@ -1,0 +1,11 @@
+file,condition,photons_px_mean,method,bin_width_resized_ns,median_tau_ns,bias_pct,mare_pct,flatness_rel_std_pct,invalid_pct,spearman_tau_intensity
+fluorescein_embryo,full,20.38,FLIMngo pretrained,0.0481,2.281,-42.97,42.97,39.75,0,0.1006
+fluorescein_embryo,10,10,FLIMngo pretrained,0.0481,2.192,-45.19,45.19,47.29,0,0.1195
+fluorescein_hmsc,full,716,FLIMngo pretrained,0.0481,0.4413,-88.97,88.97,27.56,0,0.0389
+fluorescein_hmsc,10,9.995,FLIMngo pretrained,0.0481,0.9478,-76.31,76.31,26.43,0,0.08856
+fluorescein_hmsc,20,20,FLIMngo pretrained,0.0481,0.8737,-78.16,78.16,22.42,0,0.05559
+fluorescein_hmsc,50,49.99,FLIMngo pretrained,0.0481,0.7645,-80.89,80.89,20.34,0,0.02194
+fluorescein_hmsc,100,100,FLIMngo pretrained,0.0481,0.6811,-82.97,82.97,19.94,0,0.006599
+fluorescein_hmsc,500,500,FLIMngo pretrained,0.0481,0.4774,-88.06,88.06,25.8,0,0.02749
+fluorescein_embryo,"full, rolled +4 bins (rise at 2 ns)",20.38,FLIMngo pretrained,0.0481,2.427,-39.32,39.32,39.52,0,0.1205
+fluorescein_hmsc,"full, rolled +7 bins (rise at 2 ns)",716,FLIMngo pretrained,0.0481,2.939,-26.52,26.52,6.071,0,0.01536

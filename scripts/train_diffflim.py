@@ -94,7 +94,8 @@ def main():
     ap.add_argument("--ema", type=float, default=0.999)
     ap.add_argument("--base", type=int, default=64)
     ap.add_argument("--prediction", choices=["v", "eps"], default="v")
-    ap.add_argument("--simulator", choices=["v2", "v3"], default="v2", help="training data generator")
+    ap.add_argument("--simulator", choices=["v2", "v3", "v3flute"], default="v2",
+                    help="training data generator (v3flute: simulator v3 with the FLUTE instrument, flute_config())")
     ap.add_argument("--tau-range", type=float, nargs=2, default=None,
                     help="lifetime normalisation range in ns (default: 0.5 5 for v2, 0.1 12 for v3)")
     ap.add_argument("--snapshot-at", type=float, nargs="*", default=[],
@@ -133,8 +134,9 @@ def main():
         tau_range = tuple(model.tau_range)
         print(f"Resuming from {args.resume}: step {start_step}, {start_elapsed / 60:.1f} min")
     else:
-        tau_range = tuple(args.tau_range) if args.tau_range else ((0.1, 12.0) if args.simulator == "v3" else (0.5, 5.0))
-        model = DiffFLIM(base=args.base, prediction=args.prediction, tau_range=tau_range).to(device)
+        tau_range = tuple(args.tau_range) if args.tau_range else ((0.1, 12.0) if args.simulator.startswith("v3") else (0.5, 5.0))
+        extra = {"n_time_bins": 56, "bin_factor": 2} if args.simulator == "v3flute" else {}
+        model = DiffFLIM(base=args.base, prediction=args.prediction, tau_range=tau_range, **extra).to(device)
     ema = copy.deepcopy(model).eval().requires_grad_(False)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
     if ck is not None:
@@ -144,7 +146,7 @@ def main():
     print(f"DiffFLIM: {n_params / 1e6:.2f} M parameters, batch {args.batch}, {args.workers} data workers")
 
     ids = None
-    if args.simulator == "v3":
+    if args.simulator.startswith("v3"):
         from src.data import simulate_v3 as v3
         # computed once; excludes test, second-test, calibration and extra-calibration IDs. This is the
         # only place where data/splits/hpa_train.txt is written (record of the latest training run).
@@ -163,7 +165,12 @@ def main():
         args.train_ids = list(ids)              # stored in every checkpoint (vars(args)) as the record
         print(f"Simulator v3: {len(ids)} training IDs from {source} (held out: "
               f"{len(v3.held_out_ids())} test, second-test and calibration IDs; none used)")
-    stream = SimStream(seed=args.seed + start_step, simulator=args.simulator, ids=ids, tau_range=tau_range)
+    sim_cfg = None
+    if args.simulator == "v3flute":
+        from src.data.simulate_v3 import flute_config
+        sim_cfg = flute_config()
+    stream = SimStream(cfg=sim_cfg, seed=args.seed + start_step, simulator="v3" if args.simulator == "v3flute" else args.simulator,
+                       ids=ids, tau_range=tau_range, bin_factor=model.bin_factor)
     loader = DataLoader(stream, batch_size=args.batch, num_workers=args.workers,
                         pin_memory=True, persistent_workers=args.workers > 0,
                         prefetch_factor=4 if args.workers > 0 else None)
@@ -250,7 +257,10 @@ def main():
     status_path.write_text(f"{'stopped' if stopped else 'completed'} at step {step}, total {elapsed / 60:.1f} min, "
                            f"checkpoint {ckpt_path.name}\n")
     if not stopped:
-        quick_check(ema, device, args.simulator)
+        if args.simulator == "v3flute":
+            print("No FLUTE test set yet: sampling check skipped.")
+        else:
+            quick_check(ema, device, args.simulator)
 
 
 if __name__ == "__main__":

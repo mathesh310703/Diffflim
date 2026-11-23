@@ -14,13 +14,14 @@ of the normalised range (0), and the loss weights those pixels with bg_weight on
 import numpy as np
 from torch.utils.data import IterableDataset, get_worker_info
 
-from src.models.diffflim import DEFAULT_TAU_RANGE, bin_counts, normalize_targets
+from src.models.diffflim import BIN_FACTOR, DEFAULT_TAU_RANGE, bin_counts, normalize_targets
 
 
 class SimStream(IterableDataset):
     def __init__(self, cfg=None, photon_range=(10, 1000), seed=0, simulator="v2", ids=None,
-                 tau_range=DEFAULT_TAU_RANGE):
+                 tau_range=DEFAULT_TAU_RANGE, bin_factor=BIN_FACTOR):
         self.cfg = cfg
+        self.bin_factor = bin_factor
         self.photon_range = photon_range
         self.seed = seed
         self.simulator = simulator
@@ -41,7 +42,7 @@ class SimStream(IterableDataset):
         for s in gen:
             tau = np.where(s["mask"], s["tau_gt"], geo_centre) if self.simulator == "v3" else s["tau_gt"]
             yield {
-                "binned": bin_counts(s["counts"]),
+                "binned": bin_counts(s["counts"], self.bin_factor),
                 "target": normalize_targets(tau, s["intensity_gt"], self.tau_range).astype(np.float32),
                 "mask": s["mask"],
             }

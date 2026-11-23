@@ -1,0 +1,7 @@
+file,key,shape_T_H_W,dtype,integer_values,max_count_per_bin,photons_px_median,photons_px_p10,photons_px_p90,photons_px_max,photons_px_mean,zero_pixels_pct,peak_bin,peak_ns,halfmax_rise_bin,pre_rise_level_pct_of_peak,end_level_pct_of_peak,poisson_dispersion_adjacent
+Fluorescein_Embryo.tif,fluorescein_embryo,56x512x512,uint16,True,9,20,12,29,50,20.38,1.14,7,1.561,5,6.183,7.52,1.001
+Fluorescein_hMSC.tif,fluorescein_hmsc,56x512x512,uint16,True,82,721,638,790,914,716,0,3,0.669,2,4.542,4.597,1.007
+Embryo.tif,embryo,56x512x512,uint16,True,227,85,5,280,905,119.6,1.79,6,1.338,5,0.8686,0.8054,1.421
+hMSC control.tif,hmsc_control,56x512x512,uint16,True,713,76,39,241,3152,117.4,0,2,0.446,2,3.147,2.707,2.682
+hMSC-ZOOM.tif,hmsc_zoom,56x256x256,uint16,True,553,263,99,488,3758,289.3,0,2,0.446,2,2.843,2.275,2.545
+hMSC_rotenone.tif,hmsc_rotenone,56x512x512,uint16,True,667,92,43,291,2692,139.4,0,2,0.446,2,2.972,2.389,2.789
