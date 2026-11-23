@@ -12,7 +12,7 @@ are skipped):
   (f) real data, Test B: split-half difference per recording (results/tables/real_celegans_splithalf_<tag>.csv).
 
 Usage:
-    python scripts/plot_versions.py [--tags v2_3h,v2,v3cells_3h,v3cells]
+    python scripts/plot_versions.py [--tags v2_3h,v2,v2long_9h,v2long,v3cells_3h,v3cells]
 """
 import argparse
 import csv
@@ -30,8 +30,12 @@ from src.paths import FIGURES, PROCESSED, TABLES  # noqa: E402
 
 LEVELS = (10, 20, 50, 100, 500, 1000)
 LABELS = {"v2_3h": "v2, 3 h (246 cells)", "v2": "v2, 6 h (246 cells)",
+          "v2long_9h": "v2 long, step 279k (246 cells)", "v2long": "v2 long, final (246 cells)",
           "v3cells_3h": "v3cells, step 92k", "v3cells": "v3cells, step 186k"}
-STYLES = {"v2_3h": ("C0", "--", "o"), "v2": ("C0", "-", "o"), "v3cells_3h": ("C3", "--", "s"), "v3cells": ("C3", "-", "s")}
+STYLES = {"v2_3h": ("C0", "--", "o"), "v2": ("C0", "-", "o"), "v2long_9h": ("C1", "--", "^"), "v2long": ("C1", "-", "^"),
+          "v3cells_3h": ("C3", "--", "s"), "v3cells": ("C3", "-", "s")}
+SHORT = {"v2_3h": "v2\nstep 92k", "v2": "v2\nstep 186k", "v2long_9h": "v2 long\nstep 279k",
+         "v2long": "v2 long\nstep 350k", "v3cells_3h": "v3cells\nstep 92k", "v3cells": "v3cells\nstep 186k"}
 
 
 def read(path):
@@ -51,7 +55,7 @@ def per_level(p, key):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tags", default="v2_3h,v2,v3cells_3h,v3cells")
+    ap.add_argument("--tags", default="v2_3h,v2,v2long_9h,v2long,v3cells_3h,v3cells")
     ap.add_argument("--out", default=str(FIGURES / "versions.png"))
     args = ap.parse_args()
     fig, ax = plt.subplots(2, 3, figsize=(15, 8.6))
@@ -104,7 +108,7 @@ def main():
                      (ax[5], "Split-half difference (%)", "(f) Real data, Test B (split-half consistency)")):
         a.set_xticks(range(len(shown)))
         a.set_xlim(-0.6, len(shown) - 0.4)
-        a.set_xticklabels([LABELS.get(t_, t_).replace(", ", "\n", 1) for t_ in shown], fontsize=7)
+        a.set_xticklabels([SHORT.get(t_, LABELS.get(t_, t_).replace(", ", "\n", 1)) for t_ in shown], fontsize=7)
         a.set_ylabel(yl); a.set_title(t, fontsize=10); a.grid(alpha=0.3, axis="y")
     ax[4].set_ylim(2.4, 3.55)
     ax[4].legend(fontsize=7, loc="lower right")

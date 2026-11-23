@@ -11,6 +11,24 @@ Usage:
 --steps N stops after N optimiser steps instead of after --minutes (the time limit is then not
 used). --snapshot-at-step N:SUFFIX keeps a copy of the checkpoint after step N as
 checkpoints/{name}_{SUFFIX}.pt (the time-based --snapshot-at still works).
+
+Resuming (--resume CHECKPOINT): model, EMA and optimiser state, the step counter and the elapsed
+time are loaded from the checkpoint, and training continues with the same schedule (the learning
+rate and the EMA warm-up depend on the global step, so they continue exactly). The model
+configuration is taken from the checkpoint; --lr, --batch, --warmup and --ema must equal the values
+stored in it (checked). --minutes is then the ADDITIONAL training time and --steps the TOTAL step
+count. The training IDs are those stored in the checkpoint, or --ids-file (needed for DiffFLIM v2,
+whose checkpoint predates the stored list); data/splits/hpa_train.txt is not rewritten when
+resuming. The data stream is seeded with seed + start step, so the resumed run does not replay the
+images of the first run. The log logs/{name}.csv starts at the resumed step, with the cumulative
+time. Example (DiffFLIM v2 long):
+    python scripts/train_diffflim.py --simulator v3 --resume checkpoints/diffflim_v2.pt \
+        --ids-file data/splits/hpa_train_diffflim_v2.txt --minutes 300 --name diffflim_v2long \
+        --snapshot-at-step 279000:9h --ckpt-every 15 --workers 16
+
+Graceful stop: if a file named STOP exists in the project root, the run saves its checkpoint,
+writes the step reached to logs/{name}_status.txt and stops (checked every --log-every steps). A run
+does not start while STOP exists. logs/{name}_status.txt ends with "completed" or "stopped".
 """
 import argparse
 import copy
@@ -26,7 +44,9 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.data.stream import SimStream  # noqa: E402
 from src.models.diffflim import DEFAULT_SAMPLE_STEPS, DiffFLIM  # noqa: E402
-from src.paths import CHECKPOINTS, LOGS  # noqa: E402
+from src.paths import CHECKPOINTS, LOGS, ROOT  # noqa: E402
+
+STOP_FILE = ROOT / "STOP"
 
 
 def save_checkpoint(path, model, ema, opt, step, elapsed, args):
@@ -87,16 +107,39 @@ def main():
     ap.add_argument("--ckpt-every", type=float, default=10, help="minutes")
     ap.add_argument("--log-every", type=int, default=50, help="steps")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--resume", default="", help="checkpoint to continue from (model, EMA, optimiser, step)")
+    ap.add_argument("--ids-file", default="", help="fixed list of training IDs (v3), e.g. data/splits/hpa_train_diffflim_v2.txt")
     args = ap.parse_args()
+    if STOP_FILE.exists():
+        print(f"{STOP_FILE} exists: remove it to start training.")
+        sys.exit(1)
 
     torch.manual_seed(args.seed)
     device = torch.device("cuda")
     torch.backends.cudnn.benchmark = True
 
-    tau_range = tuple(args.tau_range) if args.tau_range else ((0.1, 12.0) if args.simulator == "v3" else (0.5, 5.0))
-    model = DiffFLIM(base=args.base, prediction=args.prediction, tau_range=tau_range).to(device)
+    start_step, start_elapsed, ck = 0, 0.0, None
+    if args.resume:
+        ck = torch.load(args.resume, map_location=device, weights_only=False)
+        old = ck["args"]
+        for k in ("lr", "batch", "warmup", "ema", "simulator"):
+            if old.get(k) != getattr(args, k):
+                raise SystemExit(f"--{k} {getattr(args, k)} differs from the checkpoint ({old.get(k)})")
+        start_step, start_elapsed = int(ck["step"]), float(ck["elapsed_s"])
+        args.resumed_from = {"checkpoint": str(Path(args.resume).as_posix()), "step": start_step,
+                             "elapsed_s": start_elapsed}
+        model = DiffFLIM(**ck["config"]).to(device)
+        model.load_state_dict(ck["model"])
+        tau_range = tuple(model.tau_range)
+        print(f"Resuming from {args.resume}: step {start_step}, {start_elapsed / 60:.1f} min")
+    else:
+        tau_range = tuple(args.tau_range) if args.tau_range else ((0.1, 12.0) if args.simulator == "v3" else (0.5, 5.0))
+        model = DiffFLIM(base=args.base, prediction=args.prediction, tau_range=tau_range).to(device)
     ema = copy.deepcopy(model).eval().requires_grad_(False)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
+    if ck is not None:
+        ema.load_state_dict(ck["ema"])
+        opt.load_state_dict(ck["opt"])
     n_params = sum(p.numel() for p in model.parameters())
     print(f"DiffFLIM: {n_params / 1e6:.2f} M parameters, batch {args.batch}, {args.workers} data workers")
 
@@ -105,11 +148,22 @@ def main():
         from src.data import simulate_v3 as v3
         # computed once; excludes test, second-test, calibration and extra-calibration IDs. This is the
         # only place where data/splits/hpa_train.txt is written (record of the latest training run).
-        ids = v3.train_ids(write=True)
+        if args.ids_file:
+            ids = v3._read_ids(args.ids_file)
+            source = args.ids_file
+        elif ck is not None and ck["args"].get("train_ids"):
+            ids = list(ck["args"]["train_ids"])
+            source = f"the checkpoint {args.resume}"
+        else:
+            ids = v3.train_ids(write=True)
+            source = f"train_ids(), written to {v3.TRAIN_IDS_FILE.name}"
+        overlap = set(ids) & v3.held_out_ids()
+        if overlap:
+            raise SystemExit(f"{len(overlap)} training IDs are held-out IDs (test, second test or calibration)")
         args.train_ids = list(ids)              # stored in every checkpoint (vars(args)) as the record
-        print(f"Simulator v3: {len(ids)} training IDs (written to {v3.TRAIN_IDS_FILE.name}; held out: "
-              f"{len(v3.held_out_ids())} test, second-test and calibration IDs)")
-    stream = SimStream(seed=args.seed, simulator=args.simulator, ids=ids, tau_range=tau_range)
+        print(f"Simulator v3: {len(ids)} training IDs from {source} (held out: "
+              f"{len(v3.held_out_ids())} test, second-test and calibration IDs; none used)")
+    stream = SimStream(seed=args.seed + start_step, simulator=args.simulator, ids=ids, tau_range=tau_range)
     loader = DataLoader(stream, batch_size=args.batch, num_workers=args.workers,
                         pin_memory=True, persistent_workers=args.workers > 0,
                         prefetch_factor=4 if args.workers > 0 else None)
@@ -120,16 +174,20 @@ def main():
     log_f = open(LOGS / f"{args.name}.csv", "w", newline="")
     log = csv.writer(log_f)
     log.writerow(["step", "elapsed_min", "loss", "lr", "it_per_s", "data_wait_frac"])
+    status_path = LOGS / f"{args.name}_status.txt"
+    status_path.write_text(f"running from step {start_step}\n")
 
-    t_start = time.perf_counter()
-    t_log, t_ckpt, wait, losses, step = t_start, t_start, 0.0, [], 0
+    # times are cumulative over resumed runs: t_start is shifted back by the elapsed time of the checkpoint
+    t_start = time.perf_counter() - start_elapsed
+    t_log, t_ckpt, wait, losses, step = time.perf_counter(), time.perf_counter(), 0.0, [], start_step
+    stopped = False
     pending_snapshots = sorted(args.snapshot_at)
     step_snapshots = {int(x.split(":")[0]): x.split(":")[1] for x in args.snapshot_at_step}
     t_fetch = time.perf_counter()
     for batch in loader:
         wait += time.perf_counter() - t_fetch
         elapsed = time.perf_counter() - t_start
-        if (args.steps and step >= args.steps) or (not args.steps and elapsed > args.minutes * 60):
+        if (args.steps and step >= args.steps) or (not args.steps and elapsed - start_elapsed > args.minutes * 60):
             break
 
         binned = batch["binned"].to(device, non_blocking=True)
@@ -163,6 +221,10 @@ def main():
                 print(f"step {step:6d}  {(now - t_start) / 60:5.1f} min  loss {np.mean(losses):.4f}  "
                       f"{ips:.1f} it/s  data wait {wait / (now - t_log):.0%}", flush=True)
             losses, t_log, wait = [], now, 0.0
+            if STOP_FILE.exists():
+                stopped = True
+                print(f"STOP file found at step {step}: saving and stopping", flush=True)
+                break
         for m in [x for x in pending_snapshots if elapsed >= x * 60]:
             snap = CHECKPOINTS / f"{args.name}_{int(m)}min.pt"
             save_checkpoint(snap, model, ema, opt, step, elapsed, args)
@@ -181,9 +243,14 @@ def main():
     elapsed = time.perf_counter() - t_start
     save_checkpoint(ckpt_path, model, ema, opt, step, elapsed, args)
     log_f.close()
-    print(f"Done: {step} steps in {elapsed / 60:.1f} min ({step / elapsed:.1f} it/s). "
+    run_s = elapsed - start_elapsed
+    print(f"Done: step {step} ({step - start_step} steps in this run, {run_s / 60:.1f} min, "
+          f"{(step - start_step) / max(run_s, 1e-9):.1f} it/s; total {elapsed / 60:.1f} min). "
           f"Peak GPU memory {torch.cuda.max_memory_allocated() / 1e9:.2f} GB. Saved {ckpt_path}")
-    quick_check(ema, device, args.simulator)
+    status_path.write_text(f"{'stopped' if stopped else 'completed'} at step {step}, total {elapsed / 60:.1f} min, "
+                           f"checkpoint {ckpt_path.name}\n")
+    if not stopped:
+        quick_check(ema, device, args.simulator)
 
 
 if __name__ == "__main__":

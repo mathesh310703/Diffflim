@@ -4,6 +4,10 @@
              left: logged loss (every 50 steps) and its running median over 100 log entries (centred), log
              axis, with the time of the 3-hour snapshot; right: data-wait fraction (centred running mean
              over 100 log entries) with the 50 % limit.
+  v2long     results/figures/loss_v2long.png: the same panels for DiffFLIM v2 long, i.e.
+             logs/diffflim_v2.csv (steps 0 to 186,116) followed by logs/diffflim_v2long.csv (the resumed
+             run, cumulative minutes), with the 3-hour snapshot, the resume point (360 min) and the
+             step-279k snapshot marked.
   flimngo    results/figures/training_flimngo_v3.png from logs/flimngo_v3.csv and
              logs/flimngo_v3_val.csv (scripts/train_flimngo.py): left: training MSE (logged values and
              moving mean over 20 log entries) and validation MSE, log axis; right: median relative
@@ -14,6 +18,7 @@ Both figures were first made with inline commands; this script reproduces them f
 Usage:
     python scripts/plot_training_curves.py              # both figures
     python scripts/plot_training_curves.py diffflim     # only loss_v2.png
+    python scripts/plot_training_curves.py v2long       # only loss_v2long.png
     python scripts/plot_training_curves.py flimngo --log logs/flimngo_v3.csv \
         --val logs/flimngo_v3_val.csv --out results/figures/training_flimngo_v3.png
 """
@@ -45,15 +50,20 @@ def running(x, k, fn):
     return np.array([fn(x[max(0, i - h):i + h + 1]) for i in range(len(x))])
 
 
-def plot_diffflim(log, out, snapshot_min=180.0, title="DiffFLIM v2", window=100):
-    d = read_columns(log)
+def plot_diffflim(log, out, snapshot_min=180.0, title="DiffFLIM v2", window=100, marks=None):
+    """log: one CSV path or a list of paths that are concatenated (a resumed run continues the minutes).
+    marks: optional list of (minute, label, linestyle) drawn as vertical lines instead of the 3-hour snapshot."""
+    parts = [read_columns(x) for x in (log if isinstance(log, (list, tuple)) else [log])]
+    d = {k: np.concatenate([q[k] for q in parts]) for k in parts[0]}
     t = d["elapsed_min"]
     fig, ax = plt.subplots(1, 2, figsize=(12, 4.2))
     ax[0].plot(t, d["loss"], color="C0", lw=0.5, alpha=0.35, label="logged loss (every 50 steps)")
     ax[0].plot(t, running(d["loss"], window, np.median), color="C0", lw=1.5,
                label=f"running median ({window} points)")
-    if snapshot_min:
-        ax[0].axvline(snapshot_min, color="gray", ls=":", lw=1.5, label="3-hour snapshot")
+    if marks is None:
+        marks = [(snapshot_min, "3-hour snapshot", ":")] if snapshot_min else []
+    for m, lab, ls in marks:
+        ax[0].axvline(m, color="gray", ls=ls, lw=1.5, label=lab)
     ax[0].set_yscale("log")
     ax[0].set_xlabel("Training time (min)")
     ax[0].set_ylabel("Training loss (v-prediction MSE)")
@@ -100,7 +110,7 @@ def plot_flimngo(log, val, out, title="FLIMngo architecture trained on v3 (flimn
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("which", nargs="?", choices=["diffflim", "flimngo", "both"], default="both")
+    ap.add_argument("which", nargs="?", choices=["diffflim", "v2long", "flimngo", "both"], default="both")
     ap.add_argument("--log", default=None, help="training log (default: logs/diffflim_v2.csv or logs/flimngo_v3.csv)")
     ap.add_argument("--val", default=None, help="validation log (flimngo only; default logs/flimngo_v3_val.csv)")
     ap.add_argument("--out", default=None, help="output figure")
@@ -108,6 +118,14 @@ def main():
     if args.which in ("diffflim", "both"):
         plot_diffflim(Path(args.log) if args.log and args.which == "diffflim" else LOGS / "diffflim_v2.csv",
                       Path(args.out) if args.out and args.which == "diffflim" else FIGURES / "loss_v2.png")
+    if args.which == "v2long":
+        snap = read_columns(LOGS / "diffflim_v2long.csv")
+        t9 = float(np.interp(279000, snap["step"], snap["elapsed_min"]))
+        plot_diffflim([LOGS / "diffflim_v2.csv", LOGS / "diffflim_v2long.csv"],
+                      Path(args.out) if args.out else FIGURES / "loss_v2long.png",
+                      title="DiffFLIM v2 and v2 long (resumed)",
+                      marks=[(180.0, "3-hour snapshot (step 92k)", ":"), (360.0, "end of v2, resume (step 186k)", "--"),
+                             (t9, "snapshot step 279k", "-.")])
     if args.which in ("flimngo", "both"):
         plot_flimngo(Path(args.log) if args.log and args.which == "flimngo" else LOGS / "flimngo_v3.csv",
                      Path(args.val) if args.val else LOGS / "flimngo_v3_val.csv",

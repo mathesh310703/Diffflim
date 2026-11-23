@@ -11,7 +11,7 @@ same cell are not independent (the test set is paired across photon levels).
 Writes results/tables/model_versions_paired.csv
 
 Usage:
-    python scripts/compare_versions.py [--pairs v3cells:v2,v3cells_3h:v2_3h,v2:v2_3h,v3cells:v3cells_3h]
+    python scripts/compare_versions.py [--pairs v3cells:v2,...]  (pairs whose predictions are missing are skipped)
 """
 import argparse
 import csv
@@ -44,7 +44,8 @@ def per_image_error(tag, q):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--pairs", default="v3cells:v2,v3cells_3h:v2_3h,v2:v2_3h,v3cells:v3cells_3h")
+    ap.add_argument("--pairs", default="v3cells:v2,v3cells_3h:v2_3h,v2:v2_3h,v3cells:v3cells_3h,"
+                                       "v2long_9h:v2,v2long:v2long_9h,v2long:v2")
     args = ap.parse_args()
     ids = test_hpa_ids()
     cells = np.unique(ids)
@@ -53,6 +54,9 @@ def main():
     rows = []
     for pair in args.pairs.split(","):
         a, b = pair.split(":")
+        if not all((PROCESSED / f"preds_{t}_s10_n10_test.npz").exists() for t in (a, b)):
+            print(f"skipping {a} - {b}: test predictions missing")
+            continue
         for q in ("tau", "int"):
             ea, lev, gta = per_image_error(a, q)
             eb, levb, gtb = per_image_error(b, q)
