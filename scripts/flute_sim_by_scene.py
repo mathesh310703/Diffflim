@@ -46,6 +46,8 @@ def main():
     ap.add_argument("--tags", nargs="+", default=["flute", "flute_100k"])
     ap.add_argument("--flimngo-ckpt", default=None)
     ap.add_argument("--out", default=str(TABLES / "flute_sim_by_scene.csv"))
+    ap.add_argument("--test-dir", default=None, help="test folder (default: the fixed FLUTE test set); the "
+                    "caches preds_<tag>_s10_n10_test.npz must come from the same folder")
     args = ap.parse_args()
     flim = None
     if args.flimngo_ckpt:
@@ -56,7 +58,8 @@ def main():
         flim = load_flimngo_flute(args.flimngo_ckpt)
     caches = {t: np.load(ROOT / f"data/processed/preds_{t}_s10_n10_test.npz") for t in args.tags}
     rows = []
-    files = sorted(v3.flute_set_dir("test").glob("test_p*.npz"), key=lambda p: int(p.stem.split("_p")[1]))
+    test_dir = Path(args.test_dir) if args.test_dir else v3.flute_set_dir("test")
+    files = sorted(test_dir.glob("test_p*.npz"), key=lambda p: int(p.stem.split("_p")[1]))
     for li, f in enumerate(files):
         d = load_dataset(f)
         level = int(round(float(d["photons"][0])))

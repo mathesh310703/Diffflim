@@ -140,6 +140,25 @@ def load_or_predict(path, model_fn, files, n_images, n_samples, seed0, recompute
     return rec
 
 
+def scene_subset(rec, files, n_images, scene):
+    """Keep only the images of one scene type (24 November 2026, for guided FLUTE models): "mono" = every
+    foreground pixel has one lifetime component, "multi" = the rest. Needs n_components in the data sets;
+    the record order is the file order (load_or_predict)."""
+    if scene == "all":
+        return rec
+    keep = []
+    for path in files:
+        d = load_dataset(path)
+        n = min(n_images or len(d["counts"]), len(d["counts"]))
+        m = d["mask"].astype(bool)
+        keep += [bool((d["n_components"][i][m[i]] == 1).all()) for i in range(n)]
+    keep = np.array(keep)
+    assert len(keep) == len(rec["photons"]), "record and data set differ in length"
+    if scene == "multi":
+        keep = ~keep
+    return {k: v[keep] for k, v in rec.items()}
+
+
 def per_image_hits(rec, q, factor):
     """(pixels inside the interval, foreground pixels, sum of relative widths) per image."""
     m = rec["mask"]
@@ -186,6 +205,8 @@ def main():
                     help="Poisson data-consistency guidance (src/models/guidance.py) with this prior precision; "
                          "use a separate --preds-tag, the caches do not record the setting")
     ap.add_argument("--guide-stop", type=float, default=1.0, help="guide the first fraction of the DDIM steps")
+    ap.add_argument("--scene", default="all", choices=["all", "mono", "multi"],
+                    help="calibrate and test on one scene type only (FLUTE sets; mono = one component per pixel)")
     args = ap.parse_args()
 
     calib_dirs = [Path(c) for c in args.calib_dir.split(",")]
@@ -215,7 +236,8 @@ def main():
                               args.steps, guide)
         if args.photon_estimator != "otsu_log":
             rec = recompute_photons_est(rec, files, args.n_calib, args.photon_estimator)
-        print(f"  {len(rec['photons'])} images")
+        rec = scene_subset(rec, files, args.n_calib, args.scene)
+        print(f"  {len(rec['photons'])} images (scene {args.scene})")
         recs.append(rec)
     calib = concat_records(recs)
     print("Predicting test set")
@@ -223,6 +245,7 @@ def main():
                            args.n_test, args.n_samples, 1000, args.recompute, args.steps, guide)
     if args.photon_estimator != "otsu_log":
         test = recompute_photons_est(test, test_files, args.n_test, args.photon_estimator)
+    test = scene_subset(test, test_files, args.n_test, args.scene)
 
     for name, rec in [("calibration", calib), ("test", test)]:
         ratio = rec["photons_est"] / rec["photons"]

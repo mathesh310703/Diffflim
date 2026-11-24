@@ -12,7 +12,8 @@
 # The second test set is not used.
 #
 # Optional environment variables (24 November 2026, for the FLUTE v2 prior): TEST_DIR and CALIB_DIR
-# replace the test and calibration folders (defaults: the sets above).
+# replace the test and calibration folders (defaults: the sets above). Until 24 November 2026 (evening)
+# the commands ignored them (hard-coded old sets); fixed after the v2-prior night run.
 #
 # Usage: bash scripts/post_training_chain_flute.sh <checkpoint name> <tag> [quick]
 # Example: bash scripts/post_training_chain_flute.sh diffflim_flute flute
@@ -25,12 +26,12 @@ TEST_DIR=${TEST_DIR:-data/raw/own/sim_flute_test}
 CALIB_DIR=${CALIB_DIR:-data/raw/own/sim_flute_calib}
 if [ "$3" = "quick" ]; then NIMG=2; NCAL=3; NTEST=2; fi
 test -f "$CKPT" || { echo "missing $CKPT"; exit 1; }
-python -W ignore scripts/eval_diffflim.py --ckpt "$CKPT" --tag "$TAG" --test-set data/raw/own/sim_flute_test \
+python -W ignore scripts/eval_diffflim.py --ckpt "$CKPT" --tag "$TAG" --test-set "$TEST_DIR" \
     --n-images $NIMG > "logs/chain_${TAG}_eval.txt" 2>&1
 echo "eval done"
 python -W ignore scripts/calibrate_diffflim.py --ckpt "$CKPT" --tag "${TAG}_s10" --preds-tag "$TAG" --smooth \
-    --photon-estimator otsu_adaptive --test-set data/raw/own/sim_flute_test \
-    --calib-dir data/raw/own/sim_flute_calib --n-calib $NCAL --n-test $NTEST > "logs/chain_${TAG}_calibrate.txt" 2>&1
+    --photon-estimator otsu_adaptive --test-set "$TEST_DIR" \
+    --calib-dir "$CALIB_DIR" --n-calib $NCAL --n-test $NTEST > "logs/chain_${TAG}_calibrate.txt" 2>&1
 echo "calibration done"
 if [ "$3" != "quick" ]; then
     python -W ignore scripts/eval_real_flute.py --ckpt "$CKPT" --tag "$TAG" \
