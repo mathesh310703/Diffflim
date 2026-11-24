@@ -1,0 +1,5 @@
+prior,subset,n_scenes,n_pixels,share_ge_3.61ns_pct,share_ge_4ns_pct,share_ge_5ns_pct,p1_ns,p10_ns,p50_ns,p90_ns,p99_ns,max_ns,scenes_uniform,scenes_near-uniform,scenes_structured_mono,scenes_NADPH-like
+as trained (flute_mix),all pixels,600,1754581,3.879,0.8988,0,0.6285,0.935,1.623,3.149,3.981,4.899,0,0,292,308
+as trained (flute_mix),mono-exponential scenes,600,850414,8.004,1.854,0,0.6289,1.31,2.421,3.519,4.114,4.899,0,0,292,308
+v2 prior (flute_v2),all pixels,600,1802517,18.08,15.06,5.356,0.2227,0.5322,1.448,4.517,5.698,6,87,140,171,202
+v2 prior (flute_v2),mono-exponential scenes,600,1181744,27.58,22.97,8.17,0.2163,0.3719,1.934,4.858,5.795,6,87,140,171,202

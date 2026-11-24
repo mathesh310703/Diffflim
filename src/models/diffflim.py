@@ -233,8 +233,10 @@ class DiffFLIM(nn.Module):
         return (w * (out - goal) ** 2).sum() / (w.sum() * target.shape[1])
 
     @torch.no_grad()
-    def ddim_sample(self, binned, n_steps=DEFAULT_SAMPLE_STEPS, generator=None, clip=1.5):
-        """Deterministic DDIM (eta = 0). binned (B, 32, H, W) -> normalised x0 (B, 2, H, W)."""
+    def ddim_sample(self, binned, n_steps=DEFAULT_SAMPLE_STEPS, generator=None, clip=1.5, guide=None):
+        """Deterministic DDIM (eta = 0). binned (B, 32, H, W) -> normalised x0 (B, 2, H, W).
+        guide: optional callable (x0, step index, n_steps) -> x0 applied to the clean estimate at every
+        step before the DDIM update (data-consistency guidance, src/models/guidance.py)."""
         B, _, H, W = binned.shape
         features = self.encoder(binned)                  # computed once, reused at every step
         x = torch.randn((B, 2, H, W), generator=generator, device=binned.device)
@@ -244,16 +246,20 @@ class DiffFLIM(nn.Module):
             ab_prev = self.alphas_cumprod[ts[i + 1]] if i + 1 < n_steps else torch.tensor(1.0, device=x.device)
             x0, _ = self.predict_x0_eps(x, t.repeat(B), features)
             x0 = x0.clamp(-clip, clip)
+            if guide is not None:
+                x0 = guide(x0, i, n_steps).clamp(-clip, clip)
             eps = (x - ab.sqrt() * x0) / (1 - ab).sqrt()  # noise estimate consistent with clipped x0
             x = ab_prev.sqrt() * x0 + (1 - ab_prev).sqrt() * eps
         return x
 
     @torch.no_grad()
-    def sample(self, counts, n_samples=10, steps=DEFAULT_SAMPLE_STEPS, seed=None, batch=None):
+    def sample(self, counts, n_samples=10, steps=DEFAULT_SAMPLE_STEPS, seed=None, batch=None, guidance=None):
         """counts (256, H, W) numpy/torch -> samples (n_samples, 2, H, W) numpy, physical units:
-        channel 0 = tau (ns), channel 1 = intensity (signal photons)."""
+        channel 0 = tau (ns), channel 1 = intensity (signal photons).
+        guidance: optional src.models.guidance.PoissonGuidance (forward model of this image)."""
         device = self.alphas_cumprod.device
         c = torch.as_tensor(np.asarray(counts, dtype=np.float32), device=device)
+        guide = guidance.bind(c, self.tau_range) if guidance is not None else None
         binned = bin_counts(c, self.bin_factor)[None]
         g = torch.Generator(device=device)
         g.manual_seed(int(seed) if seed is not None else int(torch.randint(0, 2**31, (1,))))
@@ -262,7 +268,7 @@ class DiffFLIM(nn.Module):
         for s in range(0, n_samples, batch):
             k = min(batch, n_samples - s)
             with torch.autocast(device.type, dtype=torch.bfloat16, enabled=device.type == "cuda"):
-                y = self.ddim_sample(binned.expand(k, -1, -1, -1), steps, generator=g)
+                y = self.ddim_sample(binned.expand(k, -1, -1, -1), steps, generator=g, guide=guide)
             tau, inten = denormalize_targets(y.float(), self.tau_range)
             out.append(torch.stack([tau, inten], 1).cpu().numpy())
         return np.concatenate(out)

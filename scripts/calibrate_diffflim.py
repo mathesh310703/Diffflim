@@ -29,6 +29,10 @@ recomputed from the counts, so cached model predictions are reused. Example (v2,
       --smooth --photon-estimator otsu_adaptive --test-set data/raw/own/sim_v3_test
       --calib-dir data/raw/own/sim_v3_calib,data/raw/own/sim_v3_calib_extra
 
+Guidance (24 November 2026): --guide-kappa K --guide-stop S runs every prediction with the Poisson
+data-consistency guidance of src/models/guidance.py (forward model of the data set with each image's IRF
+and background, as for the baselines). Give it its own --preds-tag.
+
 Usage:
   python scripts/calibrate_diffflim.py                                   # v1 model, v2 simulator
   python scripts/calibrate_diffflim.py --ckpt checkpoints/diffflim_v2.pt --tag v2 --smooth \
@@ -96,7 +100,17 @@ def preds_cache(ptag, key, steps, n_samples):
     return PROCESSED / f"preds_{ptag}_s{steps}_n{n_samples}_{key}.npz"
 
 
-def predict_split(model, files, n_images, n_samples, seed0, steps=10):
+def image_guidance(d, i, guide):
+    """Poisson data-consistency guidance for image i of data set d (guide = (kappa, stop) or None)."""
+    if guide is None:
+        return None
+    from src.baselines.common import forward_setup
+    from src.models.guidance import PoissonGuidance
+    fn = forward_setup(d["metadata"], d["irf"][i] if "irf" in d else None)[1]["decay_fn"]
+    return PoissonGuidance(fn, float(d["bg_per_bin"][i]), guide[0], stop_frac=guide[1])
+
+
+def predict_split(model, files, n_images, n_samples, seed0, steps=10, guide=None):
     """Run the model on every image -> prediction record (see calibration.py)."""
     keys = ["tau_mean", "tau_std", "int_mean", "int_std", "tau_gt", "int_gt", "mask", "photons", "photons_est"]
     rec = {k: [] for k in keys}
@@ -105,7 +119,8 @@ def predict_split(model, files, n_images, n_samples, seed0, steps=10):
         n = min(n_images or len(d["counts"]), len(d["counts"]))
         t0 = time.perf_counter()
         for i in range(n):
-            s = model.sample(d["counts"][i], n_samples=n_samples, steps=steps, seed=seed0 + i)
+            s = model.sample(d["counts"][i], n_samples=n_samples, steps=steps, seed=seed0 + i,
+                             guidance=image_guidance(d, i, guide))
             rec["tau_mean"].append(s[:, 0].mean(0)); rec["tau_std"].append(s[:, 0].std(0, ddof=1))
             rec["int_mean"].append(s[:, 1].mean(0)); rec["int_std"].append(s[:, 1].std(0, ddof=1))
             rec["tau_gt"].append(d["tau_gt"][i]); rec["int_gt"].append(d["intensity_gt"][i])
@@ -115,11 +130,11 @@ def predict_split(model, files, n_images, n_samples, seed0, steps=10):
     return {k: np.stack(v) if np.ndim(v[0]) else np.array(v) for k, v in rec.items()}
 
 
-def load_or_predict(path, model_fn, files, n_images, n_samples, seed0, recompute, steps=10):
+def load_or_predict(path, model_fn, files, n_images, n_samples, seed0, recompute, steps=10, guide=None):
     if path.exists() and not recompute:
         with np.load(path) as f:
             return {k: f[k] for k in f.files}
-    rec = predict_split(model_fn(), files, n_images, n_samples, seed0, steps)
+    rec = predict_split(model_fn(), files, n_images, n_samples, seed0, steps, guide)
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(path, **rec)
     return rec
@@ -167,6 +182,10 @@ def main():
     ap.add_argument("--steps", type=int, default=10, help="DDIM steps (default 10 since 2026-11-22; 50 before)")
     ap.add_argument("--smooth", action="store_true", help="per-level factors as a quadratic in log(photons)")
     ap.add_argument("--recompute", action="store_true")
+    ap.add_argument("--guide-kappa", type=float, default=None,
+                    help="Poisson data-consistency guidance (src/models/guidance.py) with this prior precision; "
+                         "use a separate --preds-tag, the caches do not record the setting")
+    ap.add_argument("--guide-stop", type=float, default=1.0, help="guide the first fraction of the DDIM steps")
     args = ap.parse_args()
 
     calib_dirs = [Path(c) for c in args.calib_dir.split(",")]
@@ -179,6 +198,7 @@ def main():
     if not all(calib_files.values()) or not test_files:
         sys.exit(f"Missing calibration ({calib_dirs}) or test ({test_dir}) files.")
     ptag = args.preds_tag or args.tag
+    guide = None if args.guide_kappa is None else (args.guide_kappa, args.guide_stop)
 
     def model_fn():
         from src.models.diffflim import load_model
@@ -192,7 +212,7 @@ def main():
         key = calib_cache_key(c)
         rec = load_or_predict(preds_cache(ptag, key, args.steps, args.n_samples), model_fn, files,
                               args.n_calib, args.n_samples, 5000 if key == "calib" else 7000, args.recompute,
-                              args.steps)
+                              args.steps, guide)
         if args.photon_estimator != "otsu_log":
             rec = recompute_photons_est(rec, files, args.n_calib, args.photon_estimator)
         print(f"  {len(rec['photons'])} images")
@@ -200,7 +220,7 @@ def main():
     calib = concat_records(recs)
     print("Predicting test set")
     test = load_or_predict(preds_cache(ptag, "test", args.steps, args.n_samples), model_fn, test_files,
-                           args.n_test, args.n_samples, 1000, args.recompute, args.steps)
+                           args.n_test, args.n_samples, 1000, args.recompute, args.steps, guide)
     if args.photon_estimator != "otsu_log":
         test = recompute_photons_est(test, test_files, args.n_test, args.photon_estimator)
 

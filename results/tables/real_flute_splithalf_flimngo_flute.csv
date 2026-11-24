@@ -1,0 +1,17 @@
+file,method,n_mask_px,photons_px_median_mask,median_tau_full_ns,splithalf_median_rel_diff_pct
+embryo,MLE,212850,97,1.499,19.89
+embryo,BinMLE5,212850,97,1.486,3.883
+embryo,Phasor,212519,97,0.7929,21.57
+embryo,FLIMngo-FLUTE,102789,97,0.7393,2.383
+hmsc_control,MLE,101327,163,2.65,14.13
+hmsc_control,BinMLE5,101327,163,2.618,2.733
+hmsc_control,Phasor,101326,163,1.424,21.04
+hmsc_control,FLIMngo-FLUTE,25852,163,1.145,2.555
+hmsc_zoom,MLE,42067,326,2.501,10.22
+hmsc_zoom,BinMLE5,42067,326,2.514,2.004
+hmsc_zoom,Phasor,42067,326,1.347,14.7
+hmsc_zoom,FLIMngo-FLUTE,7925,326,1.161,2.058
+hmsc_rotenone,MLE,99728,193,2.428,12.83
+hmsc_rotenone,BinMLE5,99728,193,2.409,2.568
+hmsc_rotenone,Phasor,99728,193,1.265,18.37
+hmsc_rotenone,FLIMngo-FLUTE,35830,193,1.03,2.117

@@ -145,6 +145,19 @@ class SimConfigV3:
     periodic: bool = False
     irf_set: str = "flimngo"                 # "flimngo" (12 FLIMngo IRFs) or "flute"
     irf_peak_range_ns: tuple = (0.3, 1.8)    # flute only: IRF peak position, uniform (circular shift)
+    # Lifetime model (2026-11-23 evening): "flimngo" (default, FLIMngo channel lifetimes) or "flute_mix":
+    # per scene either NAD(P)H-like (probability nadh_fraction; see _flute_lifetimes) or a single
+    # exponential per pixel (the FLIMngo-style amplitude-weighted lifetime map used as one lifetime).
+    lifetime_model: str = "flimngo"
+    nadh_fraction: float = 0.5
+    nadh_free_tau_range: tuple = (0.3, 0.5)     # ns, free NADH (published values, see _flute_lifetimes)
+    nadh_bound_tau_range: tuple = (1.5, 4.0)    # ns, protein-bound NADH
+    nadh_free_fraction_range: tuple = (0.4, 0.85)  # scene mean of the free fraction a_free
+    # Lifetime model "flute_v2" (2026-11-24, prepared for the next FLUTE training; see _flute_v2_lifetimes)
+    v2_tau_range: tuple = (0.2, 6.0)           # ns, range of the mono-exponential lifetimes
+    v2_scene_probs: tuple = (0.15, 0.15, 0.35, 0.35)   # uniform, near-uniform, structured mono, NAD(P)H-like
+    v2_near_uniform_amp: tuple = (0.02, 0.2)   # near-uniform: peak-to-peak relative modulation (Perlin)
+    v2_log_width_max: float = 1.3863           # structured: width of the scene's log-tau interval, U(0, ln 4)
 
     @property
     def time_starts(self):
@@ -486,6 +499,80 @@ def _random_crop(rng, cfg, ids, hpa_dir, fixed_id=None):
     return np.ascontiguousarray(crop), sid, (y, x, k, int(flip))
 
 
+def _flute_lifetimes(rng, cfg, mask, amps, tau_map, p, force_nadh=False):
+    """Lifetime model "flute_mix" (FLUTE configuration). With probability cfg.nadh_fraction a scene is
+    NAD(P)H-like with two components per pixel:
+      free NADH:  tau_free, one value per scene, uniform in cfg.nadh_free_tau_range (0.3 to 0.5 ns),
+      bound NADH: tau_bound, one value per HPA channel (different compartments / enzymes), uniform in
+                  cfg.nadh_bound_tau_range (1.5 to 4.0 ns), mixed per pixel with the channel
+                  amplitudes of the FLIMngo scene,
+      free fraction a_free = clip(m + 0.1 (p - 0.5), 0.3, 0.9), m uniform in cfg.nadh_free_fraction_range
+                  per scene, p the scene's Perlin field (spatial variation).
+    Published values used for these ranges (not fitted to the FLUTE images): free NADH about 0.4 ns and
+    protein-bound NADH longer (Lakowicz et al. 1992, PNAS 89:1271); in cells free 0.3 to 0.5 ns, bound
+    about 2 to 3 ns, free fraction about 0.6 to 0.8 (Skala et al. 2007, PNAS 104:19494); free NAD(P)H
+    0.37 to 0.4 ns and enzyme-bound NAD(P)H about 1.5 to more than 4 ns (Blacker et al. 2014, Nat Commun
+    5:3936).
+    Otherwise the scene is mono-exponential: every pixel has ONE lifetime, the amplitude-weighted
+    FLIMngo-style lifetime map tau_map (base 0.2 to 4 ns + spread up to 1 ns in flute_config, so 0.2 to
+    5 ns, which covers fluorescein at 3.6 to 4 ns).
+    Returns amps (C, H, W), taus (C, H, W), n_components (H, W)."""
+    m = mask.astype(np.float64)
+    if force_nadh or rng.random() < cfg.nadh_fraction:
+        tau_free = rng.uniform(*cfg.nadh_free_tau_range)
+        tau_bound_ch = rng.uniform(*cfg.nadh_bound_tau_range, size=amps.shape[0])
+        tau_bound = (amps * tau_bound_ch[:, None, None]).sum(0)
+        a_free = np.clip(rng.uniform(*cfg.nadh_free_fraction_range) + 0.1 * (p - 0.5), 0.3, 0.9)
+        amps2 = np.stack([a_free * m, (1 - a_free) * m])
+        taus2 = np.stack([tau_free * m, tau_bound * m])
+        return amps2, taus2, (2 * mask).astype(np.int64)
+    return m[None], (tau_map * m)[None], mask.astype(np.int64)
+
+
+def _v2_scene_tau(rng, cfg):
+    """One scene-level lifetime for "flute_v2": 50/50 mixture of log-uniform and uniform on v2_tau_range, so
+    that long lifetimes (about 28 % of draws at >= 3.61 ns) and short ones are both well represented."""
+    lo, hi = cfg.v2_tau_range
+    if rng.random() < 0.5:
+        return float(np.exp(rng.uniform(np.log(lo), np.log(hi))))
+    return float(rng.uniform(lo, hi))
+
+
+def _flute_v2_lifetimes(rng, cfg, mask, amps, tau_map, p):
+    """Lifetime model "flute_v2" (FLUTE simulator v2 prior, 24 November 2026). Scene types with the
+    probabilities cfg.v2_scene_probs:
+      uniform       every foreground pixel has one lifetime tau0 (_v2_scene_tau), one component;
+      near-uniform  tau0 * (1 + a (p - 0.5)), a uniform in cfg.v2_near_uniform_amp, p the scene's Perlin
+                    field (smooth variation of at most +-10 %), one component;
+      structured    one component per pixel, the FLIMngo-style amplitude-weighted map tau_map (cell
+                    structure of the channels) min-max normalised to q in [0, 1] over the mask and mapped
+                    to log tau = log lo + q (log hi - log lo); the interval [lo, hi] has a log-width
+                    U(0, v2_log_width_max) around a centre tau0 and is shifted to lie inside v2_tau_range.
+                    Unlike "flute_mix", channel mixing no longer pulls the pixel lifetimes towards the
+                    middle of the range: every scene spans its own interval;
+      NAD(P)H-like  unchanged from "flute_mix" (_flute_lifetimes with nadh_fraction = 1).
+    Returns amps (C, H, W), taus (C, H, W), n_components (H, W)."""
+    m = mask.astype(np.float64)
+    kind = int(rng.choice(4, p=np.asarray(cfg.v2_scene_probs) / np.sum(cfg.v2_scene_probs)))
+    if kind == 3:
+        return _flute_lifetimes(rng, cfg, mask, amps, tau_map, p, force_nadh=True)
+    tau0 = _v2_scene_tau(rng, cfg)
+    lo_all, hi_all = np.log(cfg.v2_tau_range[0]), np.log(cfg.v2_tau_range[1])
+    if kind == 0:
+        tau = np.full(mask.shape, tau0)
+    elif kind == 1:
+        tau = tau0 * (1 + rng.uniform(*cfg.v2_near_uniform_amp) * (p - 0.5))
+    else:
+        w = rng.uniform(0, cfg.v2_log_width_max)
+        lo = np.log(tau0) - w / 2
+        lo = min(max(lo, lo_all), hi_all - w)
+        v = tau_map[mask]
+        q = (tau_map - v.min()) / max(v.max() - v.min(), 1e-12) if v.size else np.zeros_like(tau_map)
+        tau = np.exp(lo + np.clip(q, 0, 1) * w)
+    tau = np.clip(tau, *cfg.v2_tau_range)
+    return m[None], (tau * m)[None], mask.astype(np.int64)
+
+
 def make_scene(rng, cfg, ids, hpa_dir=HPA_DIR, fixed_id=None):
     """Everything about one image except the photon level and the Poisson noise: crop, mask,
     lifetimes, amplitudes, relative intensity (foreground mean 1), IRF and the normalised decay
@@ -507,6 +594,13 @@ def make_scene(rng, cfg, ids, hpa_dir=HPA_DIR, fixed_id=None):
     amps = channel_amplitudes(present, p)
 
     tau_gt = (amps * taus).sum(0)                                         # amplitude-weighted
+    n_components = present.sum(0)
+    if cfg.lifetime_model == "flute_mix":
+        amps, taus, n_components = _flute_lifetimes(rng, cfg, mask, amps, tau_gt, p)
+        tau_gt = (amps * taus).sum(0)
+    elif cfg.lifetime_model == "flute_v2":
+        amps, taus, n_components = _flute_v2_lifetimes(rng, cfg, mask, amps, tau_gt, p)
+        tau_gt = (amps * taus).sum(0)
     with np.errstate(invalid="ignore", divide="ignore"):
         tau_int = np.where(mask, (amps * taus ** 2).sum(0) / tau_gt, 0.0)  # intensity-weighted
 
@@ -528,7 +622,7 @@ def make_scene(rng, cfg, ids, hpa_dir=HPA_DIR, fixed_id=None):
         irf, shift = jitter_irf(lib[j]["irf"], lib[j]["jitter"], rng)
     curves = multi_exp_curves(amps[:, mask], taus[:, mask], irf, cfg)    # (T, P_fg)
     return {"mask": mask, "rel_intensity": rel, "curves": curves, "tau_gt": tau_gt, "tau_int": tau_int,
-            "n_components": present.sum(0), "irf": irf, "irf_id": lib[j]["id"], "irf_shift": shift,
+            "n_components": n_components, "irf": irf, "irf_id": lib[j]["id"], "irf_shift": shift,
             "hpa_id": sid, "crop": crop_info, "channels": crop, "amps": amps, "taus": taus}
 
 
@@ -635,11 +729,80 @@ def flute_config(size=64):
                        tau_base_range=(0.2, 5.0))
 
 
+def flute_nadh_config(size=64):
+    """flute_config() with the lifetime model "flute_mix" (2026-11-23 evening; used for DiffFLIM-FLUTE):
+    half of the scenes NAD(P)H-like (free 0.3 to 0.5 ns, bound 1.5 to 4 ns, random free fraction;
+    published values, see _flute_lifetimes), half mono-exponential with 0.2 to 5 ns per pixel
+    (base 0.2 to 4 ns plus spread 0.1 to 1 ns)."""
+    return SimConfigV3(size=size, n_bins=56, bin_width_ns=0.223, periodic=True, irf_set="flute",
+                       tau_base_range=(0.2, 4.0), tau_spread_range=(0.1, 1.0), lifetime_model="flute_mix")
+
+
+def flute_v2prior_config(size=64):
+    """FLUTE simulator v2 prior (24 November 2026, prepared, not yet trained): flute_config() with the
+    lifetime model "flute_v2" (_flute_v2_lifetimes): 15 % uniform, 15 % near-uniform and 35 % structured
+    mono-exponential scenes with per-pixel lifetimes over 0.2 to 6 ns without dilution by channel mixing,
+    35 % NAD(P)H-like scenes (unchanged). Instrument part (56 bins of 0.223 ns, periodic, FLUTE IRFs,
+    2 % background) unchanged. The FLIMngo-style channel map is still drawn (base 0.2 to 4 ns, spread 0.1
+    to 1 ns, as flute_nadh_config) but only used for its spatial structure."""
+    return SimConfigV3(size=size, n_bins=56, bin_width_ns=0.223, periodic=True, irf_set="flute",
+                       tau_base_range=(0.2, 4.0), tau_spread_range=(0.1, 1.0), lifetime_model="flute_v2")
+
+
+# ----------------------------------------------------------------------------------------
+# Paired FLUTE sets (2026-11-23 evening): flute_nadh_config(), the same ID lists as the v3 sets,
+# levels 10 to 500 (the FLUTE data have 10 to about 700 photons per pixel), fixed seeds.
+# ----------------------------------------------------------------------------------------
+FLUTE_LEVELS = (10, 20, 50, 100, 500)
+FLUTE_TEST_SEED = 32000
+FLUTE_CALIB_SEED = 42000
+FLUTE_VAL_SEED = 72000
+
+
+def flute_set_dir(kind):
+    return RAW_OWN / f"sim_flute_{kind}"
+
+
+def make_flute_sets(force=False):
+    """test (30 test IDs, 40 scenes per level), calib (20 calibration + 54 extra calibration IDs,
+    200 scenes per level) and val (40 validation IDs, 40 scenes per level), all paired across levels,
+    in data/raw/own/sim_flute_{test,calib,val}/. The second test set is never used."""
+    cfg = flute_nadh_config()
+    out = {}
+    out["test"] = _make_paired_set(flute_set_dir("test"), "test", test_ids(), "test", FLUTE_LEVELS, 40,
+                                   FLUTE_TEST_SEED, force, cfg)
+    out["calib"] = _make_paired_set(flute_set_dir("calib"), "calib", calib_ids() + calib_extra_v2_ids(),
+                                    "calib+calib_extra_v2", FLUTE_LEVELS, 200, FLUTE_CALIB_SEED, force, cfg)
+    out["val"] = _make_paired_set(flute_set_dir("val"), "val", val_ids(), "val", FLUTE_LEVELS, 40,
+                                  FLUTE_VAL_SEED, force, cfg)
+    return out
+
+
+FLUTE_V2_TEST_SEED = 33000
+FLUTE_V2_CALIB_SEED = 43000
+FLUTE_V2_VAL_SEED = 73000
+
+
+def make_flute_v2_sets(kinds=("val", "test", "calib"), force=False):
+    """Paired sets of the FLUTE v2 prior (flute_v2prior_config) in data/raw/own/sim_flute_v2_{kind}/, with
+    the same ID lists, levels and sizes as make_flute_sets() but new seeds. The old FLUTE sets stay as
+    they are (the old test set remains the fixed comparison); the second test set is never used."""
+    cfg = flute_v2prior_config()
+    spec = {"test": (test_ids, "test", 40, FLUTE_V2_TEST_SEED),
+            "calib": (lambda: calib_ids() + calib_extra_v2_ids(), "calib+calib_extra_v2", 200, FLUTE_V2_CALIB_SEED),
+            "val": (val_ids, "val", 40, FLUTE_V2_VAL_SEED)}
+    out = {}
+    for k in kinds:
+        ids_fn, src, n, seed = spec[k]
+        out[k] = _make_paired_set(flute_set_dir(f"v2_{k}"), k, ids_fn(), src, FLUTE_LEVELS, n, seed, force, cfg)
+    return out
+
+
 def calib_set_dir():
     return RAW_OWN / "sim_v3_calib"
 
 
-def _make_paired_set(out_dir, prefix, ids, id_source, levels, n_per_level, seed, force):
+def _make_paired_set(out_dir, prefix, ids, id_source, levels, n_per_level, seed, force, cfg=None):
     paths = []
     for level in levels:
         path = Path(out_dir) / f"{prefix}_p{level}.npz"
@@ -647,7 +810,7 @@ def _make_paired_set(out_dir, prefix, ids, id_source, levels, n_per_level, seed,
             print(f"{path} exists, skipping")
         else:
             save_dataset(path, generate_paired_dataset(n_per_level, level, ids, scene_seed=seed,
-                                                       noise_seed=seed + level, id_source=id_source))
+                                                       noise_seed=seed + level, cfg=cfg, id_source=id_source))
             print(f"Saved {path} ({path.stat().st_size / 1e6:.1f} MB)")
         paths.append(path)
     return paths

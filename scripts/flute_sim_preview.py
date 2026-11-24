@@ -1,4 +1,5 @@
-"""Preview of the FLUTE configuration of simulator v3 (flute_config()) against the real FLUTE cell images.
+"""Preview of the FLUTE configuration of simulator v3 with the NAD(P)H-like lifetime option
+(flute_nadh_config(); until 2026-11-23 evening flute_config()) against the real FLUTE cell images.
 
 Simulates 200 images (64 x 64, scene seed 7300, photon level log-uniform 10 to 1000 per foreground
 pixel, HPA training IDs) and compares
@@ -32,7 +33,7 @@ REAL = ("embryo", "hmsc_control", "hmsc_zoom", "hmsc_rotenone")
 
 
 def main():
-    cfg = v3.flute_config()
+    cfg = v3.flute_nadh_config()
     ids = v3.train_ids()
     rng = np.random.default_rng(SEED)
     sims = [v3.simulate_sample(rng, cfg, float(np.exp(rng.uniform(np.log(10), np.log(1000)))), ids) for _ in range(N_SIM)]

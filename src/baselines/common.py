@@ -21,7 +21,9 @@ def forward_setup(meta, irf=None):
     cfg = config_from_metadata(meta)
     if meta.get("simulator") == "v3":
         from src.data.simulate_v3 import SimConfigV3, decay_curves_v3
-        cfg3 = SimConfigV3(size=meta["size"], n_bins=meta["n_bins"], bin_width_ns=meta["bin_width_ns"])
+        # periodic: FLUTE configuration (2026-11-23), decays of earlier pulses wrap into the window
+        cfg3 = SimConfigV3(size=meta["size"], n_bins=meta["n_bins"], bin_width_ns=meta["bin_width_ns"],
+                           periodic=bool(meta.get("periodic", False)))
         return cfg, {"decay_fn": lambda tau: decay_curves_v3(tau, irf, cfg3), "irf": irf,
                      "tau_bounds": TAU_BOUNDS_V3, "point_sampled": True}
     return cfg, {"decay_fn": None, "irf": None, "tau_bounds": TAU_BOUNDS, "point_sampled": False}

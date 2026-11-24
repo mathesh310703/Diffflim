@@ -173,7 +173,7 @@ def tile_weight():
     return np.outer(ramp, ramp)
 
 
-def run_diffflim_tiled(model, counts, steps, n_samples, seed0=1000):
+def run_diffflim_tiled(model, counts, steps, n_samples, seed0=1000, guidance=None):
     """Lifetime mean and std (H, W) from overlapping 64 x 64 tiles."""
     _, H, W = counts.shape
     ys = sorted(set(list(range(0, H - TILE + 1, STRIDE)) + [H - TILE]))
@@ -183,7 +183,8 @@ def run_diffflim_tiled(model, counts, steps, n_samples, seed0=1000):
     k = 0
     for y in ys:
         for x in xs:
-            s = model.sample(counts[:, y:y + TILE, x:x + TILE], n_samples=n_samples, steps=steps, seed=seed0 + k)
+            s = model.sample(counts[:, y:y + TILE, x:x + TILE], n_samples=n_samples, steps=steps, seed=seed0 + k,
+                             guidance=guidance)
             acc_m[y:y + TILE, x:x + TILE] += w * s[:, 0].mean(0)
             acc_v[y:y + TILE, x:x + TILE] += w * s[:, 0].var(0, ddof=1)
             acc_w[y:y + TILE, x:x + TILE] += w
@@ -201,7 +202,7 @@ def load_factor_curve(path, alpha=ALPHA):
     q = np.array([float(r["factor"]) for r in rows])
     coef = np.polyfit(x, q, 2)
     if rows[0].get("factor_curve"):
-        assert np.allclose(np.polyval(coef, x), [float(r["factor_curve"]) for r in rows], atol=2e-3)
+        assert np.allclose(np.polyval(coef, x), [float(r["factor_curve"]) for r in rows], rtol=2e-3, atol=2e-3)  # 4 significant digits in the CSV
     return coef, float(np.exp(x.min())), float(np.exp(x.max()))
 
 
@@ -221,8 +222,20 @@ def main():
     ap.add_argument("--steps", type=int, default=10)
     ap.add_argument("--samples", type=int, default=10)
     ap.add_argument("--recompute", action="store_true")
+    ap.add_argument("--guide-kappa", type=float, default=None,
+                    help="Poisson data-consistency guidance (src/models/guidance.py) with the MLE forward model "
+                         "(aligned IRF, background of the recording); settings chosen on simulated data only")
+    ap.add_argument("--guide-stop", type=float, default=1.0)
     args = ap.parse_args()
     cfg = v3.SimConfigV3(size=256)
+
+    def guidance(irf_, bg_):
+        if args.guide_kappa is None:
+            return None
+        from src.models.guidance import PoissonGuidance
+        return PoissonGuidance(lambda tau: v3.decay_curves_v3(tau, irf_, cfg), bg_, args.guide_kappa,
+                               stop_frac=args.guide_stop)
+    args.guidance = guidance
     t0 = time.perf_counter()
     recs = load_recordings()
     print(f"{len(recs)} recordings, bin width {recs[0]['bin_width']:.8f} ns, image {recs[0]['mask'].shape}")
@@ -263,8 +276,9 @@ def main():
         for r in recs:
             for part in PARTS:
                 t1 = time.perf_counter()
+                bg = r["bg_full"] * (SPLIT_P if part != "full" else 1.0)
                 m, s = run_diffflim_tiled(model, r["parts"][part].astype(np.float32), args.steps, args.samples,
-                                          seed0=1000 + SEED_OFFSET[part])
+                                          seed0=1000 + SEED_OFFSET[part], guidance=guidance(irf, bg))
                 dif[f"{r['name']}|{part}|mean"], dif[f"{r['name']}|{part}|std"] = m, s
             print(f"  DiffFLIM {r['name']}: {time.perf_counter() - t1:.1f} s per part", flush=True)
         np.savez_compressed(dif_cache, **dif)
@@ -366,7 +380,7 @@ def main():
     from src.models.diffflim import load_model
     model, _ = load_model(ROOT / args.ckpt, "cuda")
     write_csv(TABLES / f"real_celegans_splithalf_simref_{args.tag}.csv",
-              sim_reference(model, curve, args.steps, args.samples))
+              sim_reference(model, curve, args.steps, args.samples, guidance=args.guidance))
     for r in recs:     # real data: relative half-width, for comparison with the simulated reference
         m = r["mask"]
         q, _ = factor_at(curve, estimate_photon_level(r["parts"]["A"].sum(0), method=PHOTON_ESTIMATOR))
@@ -378,7 +392,7 @@ def main():
     print(f"Done in {time.perf_counter() - t0:.0f} s")
 
 
-def sim_reference(model, curve, steps, n_samples, levels=(20, 50, 100), n_img=10):
+def sim_reference(model, curve, steps, n_samples, levels=(20, 50, 100), n_img=10, guidance=None):
     """Split-half statistics of DiffFLIM on simulated v3 test images with known truth."""
     from src.data.simulate import load_dataset
     rows = []
@@ -391,8 +405,9 @@ def sim_reference(model, curve, steps, n_samples, levels=(20, 50, 100), n_img=10
             half_a = rng.binomial(c, SPLIT_P)
             out = {}
             for name, cc in (("A", half_a), ("B", c - half_a)):
+                gd = None if guidance is None else guidance(d["irf"][i], float(d["bg_per_bin"][i]) * SPLIT_P)
                 smp = model.sample(cc.astype(np.float32), n_samples=n_samples, steps=steps,
-                                   seed=1000 + SEED_OFFSET[name] + i)
+                                   seed=1000 + SEED_OFFSET[name] + i, guidance=gd)
                 q, _ = factor_at(curve, estimate_photon_level(cc.sum(0), method=PHOTON_ESTIMATOR))
                 out[name] = (smp[:, 0].mean(0)[m], q * smp[:, 0].std(0, ddof=1)[m])
             (ma, ha), (mb, hb), t = out["A"], out["B"], gt[m]

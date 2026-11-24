@@ -1,0 +1,6 @@
+method,subset,photons,tau_mare_pct,tau_bias_pct,invalid_frac
+FLIMngo-FLUTE,all_fg,10,13.13,-0.4385,0.161
+FLIMngo-FLUTE,all_fg,20,10.8,1.613,0.1259
+FLIMngo-FLUTE,all_fg,50,8.854,2.206,0.09277
+FLIMngo-FLUTE,all_fg,100,8.005,1.813,0.07268
+FLIMngo-FLUTE,all_fg,500,6.448,1.62,0.06794

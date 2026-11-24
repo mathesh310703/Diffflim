@@ -94,8 +94,10 @@ def main():
     ap.add_argument("--ema", type=float, default=0.999)
     ap.add_argument("--base", type=int, default=64)
     ap.add_argument("--prediction", choices=["v", "eps"], default="v")
-    ap.add_argument("--simulator", choices=["v2", "v3", "v3flute"], default="v2",
-                    help="training data generator (v3flute: simulator v3 with the FLUTE instrument, flute_config())")
+    ap.add_argument("--simulator", choices=["v2", "v3", "v3flute", "v3flute_nadh", "v3flute_v2prior"], default="v2",
+                    help="training data generator (v3flute: simulator v3 with the FLUTE instrument, flute_config(); "
+                         "v3flute_nadh: the same with the NAD(P)H-like lifetime option, flute_nadh_config(); "
+                         "v3flute_v2prior: FLUTE simulator v2 prior, flute_v2prior_config())")
     ap.add_argument("--tau-range", type=float, nargs=2, default=None,
                     help="lifetime normalisation range in ns (default: 0.5 5 for v2, 0.1 12 for v3)")
     ap.add_argument("--snapshot-at", type=float, nargs="*", default=[],
@@ -110,6 +112,9 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--resume", default="", help="checkpoint to continue from (model, EMA, optimiser, step)")
     ap.add_argument("--ids-file", default="", help="fixed list of training IDs (v3), e.g. data/splits/hpa_train_diffflim_v2.txt")
+    ap.add_argument("--bin-factor", type=int, default=0,
+                    help="time bins summed before the condition encoder (0: default, 8 for 256 bins, 2 for the "
+                         "56 FLUTE bins); must divide the number of bins")
     args = ap.parse_args()
     if STOP_FILE.exists():
         print(f"{STOP_FILE} exists: remove it to start training.")
@@ -135,7 +140,9 @@ def main():
         print(f"Resuming from {args.resume}: step {start_step}, {start_elapsed / 60:.1f} min")
     else:
         tau_range = tuple(args.tau_range) if args.tau_range else ((0.1, 12.0) if args.simulator.startswith("v3") else (0.5, 5.0))
-        extra = {"n_time_bins": 56, "bin_factor": 2} if args.simulator == "v3flute" else {}
+        extra = {"n_time_bins": 56, "bin_factor": 2} if args.simulator.startswith("v3flute") else {}
+        if args.bin_factor:
+            extra = {"n_time_bins": extra.get("n_time_bins", 256), "bin_factor": args.bin_factor}
         model = DiffFLIM(base=args.base, prediction=args.prediction, tau_range=tau_range, **extra).to(device)
     ema = copy.deepcopy(model).eval().requires_grad_(False)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
@@ -169,7 +176,14 @@ def main():
     if args.simulator == "v3flute":
         from src.data.simulate_v3 import flute_config
         sim_cfg = flute_config()
-    stream = SimStream(cfg=sim_cfg, seed=args.seed + start_step, simulator="v3" if args.simulator == "v3flute" else args.simulator,
+    elif args.simulator == "v3flute_nadh":
+        from src.data.simulate_v3 import flute_nadh_config
+        sim_cfg = flute_nadh_config()
+    elif args.simulator == "v3flute_v2prior":
+        from src.data.simulate_v3 import flute_v2prior_config
+        sim_cfg = flute_v2prior_config()
+    stream = SimStream(cfg=sim_cfg, seed=args.seed + start_step,
+                       simulator="v3" if args.simulator.startswith("v3flute") else args.simulator,
                        ids=ids, tau_range=tau_range, bin_factor=model.bin_factor)
     loader = DataLoader(stream, batch_size=args.batch, num_workers=args.workers,
                         pin_memory=True, persistent_workers=args.workers > 0,
@@ -257,7 +271,7 @@ def main():
     status_path.write_text(f"{'stopped' if stopped else 'completed'} at step {step}, total {elapsed / 60:.1f} min, "
                            f"checkpoint {ckpt_path.name}\n")
     if not stopped:
-        if args.simulator == "v3flute":
+        if args.simulator.startswith("v3flute"):
             print("No FLUTE test set yet: sampling check skipped.")
         else:
             quick_check(ema, device, args.simulator)

@@ -107,7 +107,9 @@ def test_split_disjoint_and_fixed():
     if v3.TRAIN_IDS_V2_FILE.exists():
         assert not set(ex) & set(v3.diffflim_v2_train_ids())       # ... and unseen by DiffFLIM v2
     assert not set(t2) & (set(te) | set(ca) | set(ex) | set(tr))  # second test set held out
-    assert set(tr) == set(v3.complete_ids()) - set(te) - set(ca) - set(ex) - set(t2)  # all other samples train
+    va = v3.val_ids() if v3.VAL_IDS_FILE.exists() else []
+    assert not set(va) & (set(te) | set(ca) | set(ex) | set(t2) | set(tr))   # validation cells held out
+    assert set(tr) == set(v3.complete_ids()) - set(te) - set(ca) - set(ex) - set(t2) - set(va)  # all other: train
     assert set(v3.train_ids(write=False, allow_calib_extra=True)) == set(tr) | set(ex)
     assert not set(t2) & set(v3.train_ids(write=False, allow_calib_extra=True))   # never, even then
     assert v3.TEST_IDS_FILE.read_text() == before[0]               # never rewritten

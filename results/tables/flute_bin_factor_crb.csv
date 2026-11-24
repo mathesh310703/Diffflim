@@ -1,0 +1,57 @@
+axis,tau_ns,factor,n_bins_after,bin_width_ns,crb_rel_std_pct_100ph,std_ratio_vs_factor1
+"FLUTE 56 x 0.223 ns, periodic",0.4,1,56,0.223,12.29,1
+"FLUTE 56 x 0.223 ns, periodic",0.4,2,28,0.446,12.58,1.023
+"FLUTE 56 x 0.223 ns, periodic",0.4,4,14,0.892,13.65,1.11
+"FLUTE 56 x 0.223 ns, periodic",0.4,7,8,1.561,14.27,1.161
+"FLUTE 56 x 0.223 ns, periodic",0.4,8,7,1.784,14.47,1.177
+"FLUTE 56 x 0.223 ns, periodic",0.4,14,4,3.122,38.02,3.093
+"FLUTE 56 x 0.223 ns, periodic",1,1,56,0.223,10.97,1
+"FLUTE 56 x 0.223 ns, periodic",1,2,28,0.446,11.03,1.005
+"FLUTE 56 x 0.223 ns, periodic",1,4,14,0.892,11.25,1.025
+"FLUTE 56 x 0.223 ns, periodic",1,7,8,1.561,11.71,1.067
+"FLUTE 56 x 0.223 ns, periodic",1,8,7,1.784,11.81,1.076
+"FLUTE 56 x 0.223 ns, periodic",1,14,4,3.122,13.41,1.222
+"FLUTE 56 x 0.223 ns, periodic",2,1,56,0.223,11.16,1
+"FLUTE 56 x 0.223 ns, periodic",2,2,28,0.446,11.18,1.002
+"FLUTE 56 x 0.223 ns, periodic",2,4,14,0.892,11.32,1.014
+"FLUTE 56 x 0.223 ns, periodic",2,7,8,1.561,11.6,1.039
+"FLUTE 56 x 0.223 ns, periodic",2,8,7,1.784,11.66,1.044
+"FLUTE 56 x 0.223 ns, periodic",2,14,4,3.122,12.13,1.087
+"FLUTE 56 x 0.223 ns, periodic",2.5,1,56,0.223,11.66,1
+"FLUTE 56 x 0.223 ns, periodic",2.5,2,28,0.446,11.73,1.006
+"FLUTE 56 x 0.223 ns, periodic",2.5,4,14,0.892,11.89,1.019
+"FLUTE 56 x 0.223 ns, periodic",2.5,7,8,1.561,12.29,1.054
+"FLUTE 56 x 0.223 ns, periodic",2.5,8,7,1.784,12.33,1.058
+"FLUTE 56 x 0.223 ns, periodic",2.5,14,4,3.122,12.7,1.089
+"FLUTE 56 x 0.223 ns, periodic",3.61,1,56,0.223,13.62,1
+"FLUTE 56 x 0.223 ns, periodic",3.61,2,28,0.446,13.71,1.007
+"FLUTE 56 x 0.223 ns, periodic",3.61,4,14,0.892,13.83,1.015
+"FLUTE 56 x 0.223 ns, periodic",3.61,7,8,1.561,14.9,1.094
+"FLUTE 56 x 0.223 ns, periodic",3.61,8,7,1.784,14.97,1.099
+"FLUTE 56 x 0.223 ns, periodic",3.61,14,4,3.122,15.29,1.123
+"FLUTE 56 x 0.223 ns, periodic",4,1,56,0.223,14.47,1
+"FLUTE 56 x 0.223 ns, periodic",4,2,28,0.446,14.55,1.006
+"FLUTE 56 x 0.223 ns, periodic",4,4,14,0.892,14.66,1.013
+"FLUTE 56 x 0.223 ns, periodic",4,7,8,1.561,16.02,1.107
+"FLUTE 56 x 0.223 ns, periodic",4,8,7,1.784,16.11,1.113
+"FLUTE 56 x 0.223 ns, periodic",4,14,4,3.122,16.45,1.137
+"FLUTE 56 x 0.223 ns, periodic",5,1,56,0.223,16.83,1
+"FLUTE 56 x 0.223 ns, periodic",5,2,28,0.446,16.92,1.005
+"FLUTE 56 x 0.223 ns, periodic",5,4,14,0.892,16.99,1.01
+"FLUTE 56 x 0.223 ns, periodic",5,7,8,1.561,19.09,1.134
+"FLUTE 56 x 0.223 ns, periodic",5,8,7,1.784,19.28,1.145
+"FLUTE 56 x 0.223 ns, periodic",5,14,4,3.122,19.75,1.173
+"FLUTE 56 x 0.223 ns, periodic",6,1,56,0.223,19.38,1
+"FLUTE 56 x 0.223 ns, periodic",6,2,28,0.446,19.46,1.004
+"FLUTE 56 x 0.223 ns, periodic",6,4,14,0.892,19.53,1.008
+"FLUTE 56 x 0.223 ns, periodic",6,7,8,1.561,22.31,1.151
+"FLUTE 56 x 0.223 ns, periodic",6,8,7,1.784,22.64,1.168
+"FLUTE 56 x 0.223 ns, periodic",6,14,4,3.122,23.36,1.205
+v3 256 x 0.0977 ns (DiffFLIM v2),0.4,8,32,0.7816,13.51,1.097
+v3 256 x 0.0977 ns (DiffFLIM v2),1,8,32,0.7816,11.11,1.019
+v3 256 x 0.0977 ns (DiffFLIM v2),2,8,32,0.7816,10.83,1.006
+v3 256 x 0.0977 ns (DiffFLIM v2),2.5,8,32,0.7816,10.85,1.004
+v3 256 x 0.0977 ns (DiffFLIM v2),3.61,8,32,0.7816,11.08,1.002
+v3 256 x 0.0977 ns (DiffFLIM v2),4,8,32,0.7816,11.26,1.002
+v3 256 x 0.0977 ns (DiffFLIM v2),5,8,32,0.7816,11.89,1.001
+v3 256 x 0.0977 ns (DiffFLIM v2),6,8,32,0.7816,12.78,1.001

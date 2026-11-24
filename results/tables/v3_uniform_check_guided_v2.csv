@@ -1,0 +1,97 @@
+sim,ids,layout,tau_true_ns,photons,method,n_images,median_tau_ns,bias_pct,mare_pct,spread_pct
+v3,test,field,1,10,DiffFLIM diffflim_v2,30,1.172,17.19,17.97,4.408
+v3,test,field,1,10,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,1.021,2.066,5.89,6.514
+v3,test,field,1,10,MLE,30,0.9703,-2.967,24.12,37.07
+v3,test,field,1,10,BinMLE5,30,0.9977,-0.2339,4.874,7.198
+v3,test,field,1,50,DiffFLIM diffflim_v2,30,1.002,0.1705,5.568,5.491
+v3,test,field,1,50,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,0.9785,-2.152,4.331,5.816
+v3,test,field,1,50,MLE,30,0.9938,-0.6198,10.65,16.02
+v3,test,field,1,50,BinMLE5,30,1,0.0212,2.2,3.2
+v3,test,field,1,500,DiffFLIM diffflim_v2,30,1.036,3.585,6.379,3.82
+v3,test,field,1,500,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,0.9958,-0.4229,3.236,3.879
+v3,test,field,1,500,MLE,30,0.9992,-0.07598,3.364,5.004
+v3,test,field,1,500,BinMLE5,30,0.9999,-0.01152,0.6919,1.03
+v3,test,field,2.5,10,DiffFLIM diffflim_v2,30,2.448,-2.084,3.366,1.98
+v3,test,field,2.5,10,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,2.478,-0.8959,2.639,3.427
+v3,test,field,2.5,10,MLE,30,2.435,-2.599,23.71,35.96
+v3,test,field,2.5,10,BinMLE5,30,2.497,-0.1062,4.85,7.115
+v3,test,field,2.5,50,DiffFLIM diffflim_v2,30,2.517,0.6969,2.448,2.101
+v3,test,field,2.5,50,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,2.501,0.02399,1.781,2.369
+v3,test,field,2.5,50,MLE,30,2.488,-0.4848,10.56,15.73
+v3,test,field,2.5,50,BinMLE5,30,2.5,0.01853,2.166,3.222
+v3,test,field,2.5,500,DiffFLIM diffflim_v2,30,2.564,2.547,2.905,2.318
+v3,test,field,2.5,500,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,2.524,0.9629,1.81,2.318
+v3,test,field,2.5,500,MLE,30,2.498,-0.0722,3.325,4.898
+v3,test,field,2.5,500,BinMLE5,30,2.5,0.008868,0.6832,1.014
+v3,test,field,3.61,10,DiffFLIM diffflim_v2,30,3.485,-3.456,3.612,1.557
+v3,test,field,3.61,10,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,3.58,-0.8256,2.353,3.077
+v3,test,field,3.61,10,MLE,30,3.514,-2.661,24.3,36.92
+v3,test,field,3.61,10,BinMLE5,30,3.611,0.01683,4.996,7.366
+v3,test,field,3.61,50,DiffFLIM diffflim_v2,30,3.591,-0.5314,1.949,1.399
+v3,test,field,3.61,50,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,3.62,0.2718,1.354,1.68
+v3,test,field,3.61,50,MLE,30,3.598,-0.3414,10.78,15.95
+v3,test,field,3.61,50,BinMLE5,30,3.615,0.1353,2.244,3.283
+v3,test,field,3.61,500,DiffFLIM diffflim_v2,30,3.663,1.471,2.076,1.817
+v3,test,field,3.61,500,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,3.636,0.7237,1.488,1.827
+v3,test,field,3.61,500,MLE,30,3.61,-0.01029,3.396,5.052
+v3,test,field,3.61,500,BinMLE5,30,3.61,0.007127,0.6916,1.017
+v3,test,field,4,10,DiffFLIM diffflim_v2,30,3.871,-3.228,3.367,1.411
+v3,test,field,4,10,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,3.956,-1.098,2.306,2.905
+v3,test,field,4,10,MLE,30,3.899,-2.52,24.69,37.34
+v3,test,field,4,10,BinMLE5,30,3.995,-0.1129,5.065,7.426
+v3,test,field,4,50,DiffFLIM diffflim_v2,30,3.977,-0.5822,1.799,1.29
+v3,test,field,4,50,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,4.005,0.1358,1.275,1.584
+v3,test,field,4,50,MLE,30,3.981,-0.4709,10.98,16.43
+v3,test,field,4,50,BinMLE5,30,4.001,0.03256,2.255,3.338
+v3,test,field,4,500,DiffFLIM diffflim_v2,30,4.024,0.6116,1.931,1.7
+v3,test,field,4,500,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,4.024,0.6062,1.388,1.705
+v3,test,field,4,500,MLE,30,3.998,-0.04594,3.459,5.12
+v3,test,field,4,500,BinMLE5,30,4,0.004921,0.7135,1.049
+v3,test,cells,1,10,DiffFLIM diffflim_v2,30,1.103,10.3,14.02,5.984
+v3,test,cells,1,10,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,1.011,1.132,6.771,8.137
+v3,test,cells,1,10,MLE,30,0.9697,-3.031,24.17,37.12
+v3,test,cells,1,10,BinMLE5,30,1,-0.0008086,5.109,7.676
+v3,test,cells,1,50,DiffFLIM diffflim_v2,30,0.9916,-0.8354,6.119,6.424
+v3,test,cells,1,50,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,0.984,-1.598,4.842,6.728
+v3,test,cells,1,50,MLE,30,0.9941,-0.5864,10.69,16.22
+v3,test,cells,1,50,BinMLE5,30,1.001,0.07097,2.274,3.417
+v3,test,cells,1,500,DiffFLIM diffflim_v2,30,1.037,3.699,6.003,4.322
+v3,test,cells,1,500,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,0.9954,-0.4625,3.258,4.366
+v3,test,cells,1,500,MLE,30,0.9991,-0.09349,3.362,5.064
+v3,test,cells,1,500,BinMLE5,30,0.9998,-0.02285,0.7197,1.079
+v3,test,cells,2.5,10,DiffFLIM diffflim_v2,30,2.491,-0.3745,2.683,2.319
+v3,test,cells,2.5,10,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,2.511,0.421,2.765,3.792
+v3,test,cells,2.5,10,MLE,30,2.433,-2.685,23.57,36.05
+v3,test,cells,2.5,10,BinMLE5,30,2.497,-0.1093,4.977,7.278
+v3,test,cells,2.5,50,DiffFLIM diffflim_v2,30,2.564,2.563,2.992,2.747
+v3,test,cells,2.5,50,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,2.527,1.09,2.267,3.054
+v3,test,cells,2.5,50,MLE,30,2.489,-0.4417,10.55,15.76
+v3,test,cells,2.5,50,BinMLE5,30,2.502,0.0862,2.281,3.314
+v3,test,cells,2.5,500,DiffFLIM diffflim_v2,30,2.583,3.308,3.688,2.584
+v3,test,cells,2.5,500,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,2.54,1.606,2.289,2.601
+v3,test,cells,2.5,500,MLE,30,2.498,-0.07763,3.349,4.948
+v3,test,cells,2.5,500,BinMLE5,30,2.499,-0.0405,0.7174,1.063
+v3,test,cells,3.61,10,DiffFLIM diffflim_v2,30,3.593,-0.4725,2.444,2.111
+v3,test,cells,3.61,10,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,3.62,0.2757,2.458,3.524
+v3,test,cells,3.61,10,MLE,30,3.506,-2.878,24.39,37.26
+v3,test,cells,3.61,10,BinMLE5,30,3.603,-0.185,5.319,8.019
+v3,test,cells,3.61,50,DiffFLIM diffflim_v2,30,3.639,0.8121,1.96,1.778
+v3,test,cells,3.61,50,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,3.631,0.5699,1.656,2.084
+v3,test,cells,3.61,50,MLE,30,3.593,-0.4847,10.74,15.83
+v3,test,cells,3.61,50,BinMLE5,30,3.608,-0.05921,2.337,3.492
+v3,test,cells,3.61,500,DiffFLIM diffflim_v2,30,3.692,2.269,2.773,2.028
+v3,test,cells,3.61,500,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,3.653,1.202,1.889,2.048
+v3,test,cells,3.61,500,MLE,30,3.61,-0.01353,3.409,5.043
+v3,test,cells,3.61,500,BinMLE5,30,3.612,0.06257,0.7371,1.078
+v3,test,cells,4,10,DiffFLIM diffflim_v2,30,3.971,-0.7332,2.479,1.773
+v3,test,cells,4,10,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,4.007,0.1692,2.395,3.455
+v3,test,cells,4,10,MLE,30,3.907,-2.319,24.78,37.46
+v3,test,cells,4,10,BinMLE5,30,4.002,0.05231,5.258,7.783
+v3,test,cells,4,50,DiffFLIM diffflim_v2,30,4.031,0.7678,1.931,1.662
+v3,test,cells,4,50,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,4.022,0.5383,1.618,1.973
+v3,test,cells,4,50,MLE,30,3.989,-0.271,11.08,16.45
+v3,test,cells,4,50,BinMLE5,30,4,0.000531,2.377,3.532
+v3,test,cells,4,500,DiffFLIM diffflim_v2,30,4.057,1.43,2.419,1.831
+v3,test,cells,4,500,DiffFLIM diffflim_v2 guided k10 w0-0.5,30,4.034,0.843,1.705,1.896
+v3,test,cells,4,500,MLE,30,3.997,-0.07916,3.465,5.094
+v3,test,cells,4,500,BinMLE5,30,3.999,-0.02801,0.7534,1.124

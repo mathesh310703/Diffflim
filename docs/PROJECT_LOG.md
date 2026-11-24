@@ -2,7 +2,7 @@
 
 ## Current status
 
-*Last updated: 2026-11-23*
+*Last updated: 2026-11-24 (midday)*
 
 The project has two simulators. Simulator v2 (`src/data/simulate.py`) produces smooth blob-shaped cells with a Gaussian IRF and was used to train DiffFLIM v1. Simulator v3 (`src/data/simulate_v3.py`) follows the FLIMngo simulation (Human Protein Atlas (HPA) crops, up to four lifetime components per pixel, Perlin-noise amplitudes, twelve IRFs with laser jitter) but with real photon counts. Of the 566 complete Human Protein Atlas samples, 30 are fixed test IDs, 100 are a second fixed test set reserved for the final evaluation (nothing has been evaluated on it), 20 are fixed calibration IDs and 54 extra calibration IDs that DiffFLIM v2 never saw; the remaining 362 were training IDs, of which 246 were used by DiffFLIM v2 and the retrained FLIMngo. A fixed validation set of 40 further unused samples (`data/splits/hpa_val.txt`, paired set in `data/raw/own/sim_v3_val/`) is used for choosing settings from 23 November 2026 on. The download has continued since (718 complete samples on 23 November); every new complete sample that is in no fixed list becomes a training ID, and each training run stores its list in the checkpoint (DiffFLIM v3cells: 386 IDs). The v3 test set (40 images per level), both v3 calibration sets (100 images per level each) and the second test set (100 images per level) are paired across photon levels.
 
@@ -24,24 +24,30 @@ More training cells did not help measurably. DiffFLIM v3cells, the DiffFLIM v2 r
 
 Longer training helps on simulated data, but the gain levels off. DiffFLIM v2 long, the DiffFLIM v2 run resumed for 300 more minutes (349,713 steps, 660 minutes in total; same cells and settings), has a lifetime error of 9.46 / 6.34 / 3.94 % at 10 / 100 / 1000 photons (v2: 9.54 / 6.53 / 4.27 %); in paired tests the pooled lifetime error is 0.31 percentage points lower (interval −0.55 to −0.15) and the intensity error 0.18 points lower, with unchanged coverage. All of the gain came before step 279,000 (−0.30 points); the last 71,000 steps changed nothing measurable (−0.02, interval −0.09 to +0.06). On the real recordings v2 long was not better: group difference 0.31 against 0.35 ns (p = 0.0152 against 0.0087) and split-half difference 4.3 against 3.4 %, mostly in the dimmer Aβ-mScarlet recordings (5.8 against 4.2 %). The author decided to keep DiffFLIM v2 (6 h) as the model of the main comparison (see Decisions): longer training is saturated on simulated data, and the slightly worse real-data results point to the gap between simulation and real data.
 
-Real data with a known lifetime: the FLUTE example files (Gottlieb et al. 2023) contain raw Poisson photon counts (56 bins of 0.223 ns covering one 12.5 ns period, so the decay of earlier pulses wraps around). With an IRF estimated on the other file, Fluorescein_Embryo gives 4.0 ns as stated, but Fluorescein_hMSC gives 3.6 ns with every method. Thinned to 10 photons per pixel, the MLE stays within 3 % of the full-photon value (spread 46 %), the binned MLE within 0.2 % (spread 8.5 %), the phasor is 31 % too low, and the pretrained FLIMngo is not usable on this time axis. DiffFLIM has not been applied to FLUTE data; a FLUTE configuration of simulator v3 (`flute_config()`) and the training option `--simulator v3flute` are ready and tested, and an overnight command is prepared but not started.
+Real data with a known lifetime: the FLUTE example files (Gottlieb et al. 2023) contain raw Poisson photon counts (56 bins of 0.223 ns covering one 12.5 ns period, so the decay of earlier pulses wraps around). With an IRF estimated on the other file, Fluorescein_Embryo gives 4.0 ns as stated, but Fluorescein_hMSC gives 3.6 ns with every method; the fixed protocol (`scripts/eval_real_flute.py`) uses 3.61 ns as its reference. Thinned to 10 photons per pixel, the MLE stays within 3 % of the reference (spread 46 %), the binned MLE within 0.2 % (spread 8.5 %), the phasor is 31 % too low, and the pretrained FLIMngo is not usable on this time axis.
+
+DiffFLIM-FLUTE, DiffFLIM trained for 200,000 steps on the FLUTE configuration of simulator v3 with an NAD(P)H-like lifetime option (literature ranges), is the most accurate method on the simulated FLUTE test set (lifetime error 10.4 / 6.8 / 5.9 % at 10 / 100 / 500 photons; the FLIMngo architecture retrained on the same data 13.1 / 8.0 / 6.4 %), its calibrated 90 % interval covers 91.1 % of the simulated test pixels, and on the four real cell images it is as consistent between two photon halves as the binned MLE (1.9 to 3.1 % against 2.0 to 3.9 %; MLE 10 to 20 %). On real fluorescein, however, its lifetime is 8 to 19 % too low at every thinning level, with flat maps (spread 2 to 5 %); the retrained FLIMngo is 3 to 11 % too low, and the binned MLE 5 × 5 remains the best method without guidance (bias within 1 %, error 0.9 to 5.7 %). Simulated images with a uniform lifetime show the same bias for both networks (DiffFLIM-FLUTE −3 to −25 %, FLIMngo-FLUTE up to −17 %; MLE within 3 %), so its main cause is the FLUTE training data (no spatially uniform lifetimes, few pixels above 3.6 ns), not the gap between simulation and the instrument. The calibrated DiffFLIM-FLUTE intervals contain the fluorescein reference in 97 to 100 % of the pixels, but only because they are wide (half-width 28 to 48 % of τ). On the cell images both networks return the amplitude-weighted lifetime (0.7 to 1.2 ns), which is not comparable in value with a mono-exponential fit (1.5 to 2.7 ns).
+
+Data-consistency guidance at sampling (no retraining; `src/models/guidance.py`) moves the network's clean estimate at each of the first DDIM steps towards a higher Poisson likelihood of the measured counts, with the mono-exponential forward model and IRF of the MLE. Chosen on simulated mono-exponential validation scenes (κ = 10, first 5 of 10 steps), it removed the bias of DiffFLIM-FLUTE on simulated uniform lifetimes (now within ±2 % except −4 % at 4 ns and 10 photons) and on real fluorescein (−3.8 / −1.8 / −0.8 / −0.5 / −0.4 % at 10 to 500 photons; error 3.9 to 0.8 %, lower than the binned MLE's 5.7 to 0.9 %; Embryo −2.9 %). On multi-exponential data it pulls the estimate towards a mono-exponential fit (NAD(P)H-like scenes: 56 to 61 % against the amplitude-weighted truth; real cells: 1.5 to 2.7 ns instead of 0.7 to 1.0 ns), and with the setting chosen on all validation scenes (κ = 1000, first 2 steps) the fluorescein bias fell only to −3.8 to −17.9 %. For DiffFLIM v2 the chosen setting reduced the uniform-lifetime bias but raised the v3 test error (6.9 against 4.3 % at 1000 photons) and lowered the calibrated coverage to 86.5 %; on the worms it increased the group difference to 0.45 ns. Guidance is therefore an option for samples known to be mono-exponential, not a default. The grouping of the 56 FLUTE bins into 28 costs at most 0.7 % of precision for τ ≥ 1 ns and is not a cause of the bias.
 
 A hallucination test found no invented structure: on images with a uniform lifetime DiffFLIM's maps vary by 2 to 3 % of τ (binned MLE 9 % at 10 photons), do not follow the intensity, and DiffFLIM invents fewer small features than every baseline except at 50 photons (pretrained FLIMngo 0.7 against 1.0 % of pixels). At low photon counts DiffFLIM smooths: at 10 photons it keeps 62 % of the small true features at 58 % of their amplitude, overestimates 1 ns lifetimes by 10 %, and 8.4 % of the pixels are confident errors (error above 20 % and outside the 90 % interval; 2.9 % at 1000 photons). Under FLIMngo's own protocol (MSE per image in ns², its photon conditions, IRF widths of 216, 402 and 796 ps) DiffFLIM v2 has the lowest median MSE in all 21 conditions and is better than each baseline on 95 to 100 % of the images.
 
 Open problems:
 
-- The calibration of DiffFLIM cannot be checked on the *C. elegans* data (no ground truth); the FLUTE fluorescein files can serve once a 56-bin DiffFLIM model exists, but Fluorescein_hMSC does not show the stated 4.0 ns.
+- The calibration of DiffFLIM cannot be checked on the *C. elegans* data (no ground truth). On FLUTE fluorescein the calibrated DiffFLIM-FLUTE intervals contain the reference, but only because they are wide around a biased estimate; a calibration check on real data with an unbiased model is still missing.
+- DiffFLIM-FLUTE and the FLIMngo architecture retrained on the FLUTE simulator underestimate spatially uniform lifetimes, on simulated and real data. The likely cause, the absence of uniform lifetimes and the scarcity of long lifetimes in the FLUTE training scenes, has not been tested by retraining; a prior with such scenes is prepared (`flute_v2prior_config()`). Guidance removes the bias only for mono-exponential samples.
+- The guidance uses a mono-exponential likelihood and changes the estimated quantity on multi-exponential data; a calibration of guided DiffFLIM on mono-exponential scenes, and a multi-exponential forward model, are missing.
 - Every DiffFLIM setting has been trained once with one seed; the variation between runs is unknown, so differences of a few tenths of a percentage point between versions cannot be interpreted.
 - The longer-trained DiffFLIM v2 long is more accurate on simulated data but less consistent between photon halves of the real Aβ-mScarlet recordings; the reason is unknown.
 - DiffFLIM smooths small structures at low photon counts, and its intensity uncertainty does not indicate where the intensity error is large above 100 photons.
 - The retrained FLIMngo would need a second training run with weight averaging or learning-rate decay and a larger validation set to remove its offset; this has not been done.
 - The recall-oriented FLIMngo mask relies on the clean foreground/background separation of the v3 data and is untested on real data.
 - The v3 ground truth contains per-pixel lifetime jitter (median 4.4 % of τ on the foreground), close to the DiffFLIM v2 error at 1000 photons; the predicted mean maps are smooth.
-- The mono-exponential baselines follow the intensity-weighted rather than the amplitude-weighted lifetime; no multi-exponential baseline exists. There is no U-Net baseline and no real data yet.
+- The mono-exponential baselines follow the intensity-weighted rather than the amplitude-weighted lifetime; no multi-exponential baseline exists. There is no U-Net baseline.
 
 A technical report that explains the system, every code file and every result file is available in `docs/TECHNICAL_REPORT.md` and `docs/TECHNICAL_REPORT.pdf`; `results/README.md` describes every figure and table.
 
-Next steps: measure the run-to-run variation with a second seed, train and evaluate a DiffFLIM model for the FLUTE instrument (simulator configuration ready, overnight command prepared), retrain FLIMngo once with weight averaging, and keep the second test set untouched until the final evaluation.
+Next steps: run the prepared overnight training with the FLUTE simulator v2 prior (`bash scripts/night_flute_v2prior.sh`: uniform and near-uniform scenes, mono-exponential lifetimes per pixel up to 6 ns, same IDs and bin factor) and compare it with DiffFLIM-FLUTE with and without guidance, measure the run-to-run variation with a second seed, retrain FLIMngo once with weight averaging, and keep the second test set untouched until the final evaluation.
 
 ## Decisions
 
@@ -82,6 +88,8 @@ Next steps: measure the run-to-run variation with a second seed, train and evalu
 **Coverage uncertainty is reported at the level of cells.** Images of the same HPA cell are not independent (same crop source, and the same scene at every photon level in the paired sets). Confidence intervals for coverage therefore resample test cells (`hpa_id`), and the joint interval also resamples the calibration cells and refits the factors. Image-level bootstrap intervals in earlier entries are about half as wide and too optimistic.
 
 **DiffFLIM v2 (6 h) stays the main model.** On 23 November 2026 the author decided to keep DiffFLIM v2 (6 h, 186,116 steps) as the model of the main comparison and not to switch to DiffFLIM v2 long. Longer training is saturated on simulated data: from step 279,000 (about 9 h) to step 349,713 (about 11 h) the lifetime error did not change (−0.02 percentage points, interval −0.09 to +0.06), and the total gain over v2 was 0.31 points. On the real *C. elegans* recordings v2 long was slightly worse (group difference 0.31 against 0.35 ns, split-half difference 4.3 against 3.4 %). This points to the gap between the simulation and real data, not to the training length, as the factor that now limits DiffFLIM; further effort goes into data that are closer to real measurements (real samples with a known lifetime, an instrument-matched simulator) rather than into longer training.
+
+**Guidance is an option, not the default.** On 24 November 2026 the author decided to keep the Poisson data-consistency guidance (`src/models/guidance.py`) switched off in every default evaluation. Its settings are chosen only on simulated validation data (`scripts/select_guidance.py`), never on real data. The setting chosen on all validation scenes (rule A) helped little, and the setting chosen on mono-exponential scenes (rule B) is valid only for samples known to be mono-exponential, such as fluorescein, because the guidance uses a mono-exponential likelihood and moves multi-exponential estimates towards the intensity-weighted lifetime. Results with guidance carry their own tags (`flute_gA`, `flute_gB`, `v2g`) and their own calibration factors.
 
 **A validation set for choosing settings.** Until now, settings were chosen on the test set or on the calibration set. On 23 November 2026, 40 HPA samples that no model, calibration or data set had used were fixed as a validation set (`data/splits/hpa_val.txt`, seed 2029, never rewritten) with a paired validation set of 40 images per photon level (`data/raw/own/sim_v3_val/`). Future choices of settings (sampler, loss, simulator variants) are made on this set; the test sets are only used to report the chosen setting.
 
@@ -1375,3 +1383,248 @@ Next, in this order:
 - Start `bash scripts/train_flute_overnight.sh` (about 6 hours; it writes the 474 current training IDs to `data/splits/hpa_train.txt`).
 - Build a paired FLUTE validation set from the validation IDs and an evaluation of 56-bin DiffFLIM models on thinned fluorescein, with Fluorescein_Embryo against 4.0 ns and Fluorescein_hMSC against its full-photon value of 3.61 ns.
 - Clarify why Fluorescein_hMSC gives 3.6 ns (FLUTE paper or authors).
+
+### 2026-11-23 – FLUTE simulator with an NAD(P)H-like lifetime option, FLUTE evaluation sets and a fixed real-data protocol
+
+Goal: Prepare everything needed to train and evaluate a DiffFLIM model for the FLUTE instrument overnight: a lifetime prior that covers the real FLUTE samples, paired simulated test, calibration and validation sets, and a fixed evaluation protocol for the real FLUTE data, run once with the classical methods. Decisions taken beforehand by the author: the reference for Fluorescein_hMSC is its measured full-photon lifetime (3.61 ns), documented next to the stated 4.0 ns; the reference for Fluorescein_Embryo is 4.0 ns (stated; measured 4.04 ns); the NAD(P)H ranges are taken from published values and not fitted to the FLUTE images.
+
+Changes:
+
+- `src/data/simulate_v3.py`: new `SimConfigV3` fields `lifetime_model` (default "flimngo", unchanged behaviour), `nadh_fraction` (0.5), `nadh_free_tau_range` (0.3, 0.5 ns), `nadh_bound_tau_range` (1.5, 4.0 ns) and `nadh_free_fraction_range` (0.4, 0.85); `_flute_lifetimes()` and `flute_nadh_config()`. With the default configurations (FLIMngo and the plain FLUTE configuration) a sample with the same seed is identical to the previous code. New: `FLUTE_LEVELS` (10, 20, 50, 100, 500), `flute_set_dir()`, `make_flute_sets()`; `_make_paired_set()` takes a configuration.
+- `src/baselines/common.py`: `forward_setup()` passes `periodic` from the data-set metadata, so the classical methods use the periodic model on FLUTE sets (no change for v2/v3 data).
+- `scripts/train_diffflim.py`: `--simulator v3flute_nadh` (flute_nadh_config()).
+- `tests/test_flute.py`: `test_flute_nadh_option` (two components with τ_free 0.3 to 0.5 ns, τ_bound 1.5 to 4 ns, free fraction 0.3 to 0.9 and amplitudes summing to 1 in NAD(P)H scenes; one component with 0.2 to 5 ns in mono-exponential scenes; both kinds occur; defaults unchanged). All 8 FLUTE tests passed.
+- `scripts/flute_sim_preview.py`: now uses `flute_nadh_config()`; `results/figures/real_flute_sim_preview.png` replaced.
+- New data (git-ignored): `data/raw/own/sim_flute_test/` (30 test cells, 40 images per level), `data/raw/own/sim_flute_calib/` (20 calibration + 54 extra calibration cells, 200 images per level), `data/raw/own/sim_flute_val/` (40 validation cells, 40 images per level); levels 10, 20, 50, 100, 500 photons per foreground pixel; paired across levels; scene seeds 32000, 42000 and 72000 (noise seed + level). 110 MB in total.
+- `scripts/eval_real_flute.py` (new): fixed real-data protocol (below); `results/tables/real_flute_eval_baselines.csv`, `results/tables/real_flute_splithalf_baselines.csv`, `results/figures/real_flute_eval_baselines.png`, `results/figures/real_flute_cells_baselines.png`; cache `data/processed/real_flute_baselines.npz`.
+- Prepared for the night: `scripts/night_flute.sh`, `scripts/post_training_chain_flute.sh`, `scripts/train_flimngo_flute.py`, `scripts/eval_flimngo_flute.py`, `scripts/flimngo_flute_chain.sh` (later entries).
+
+Settings:
+
+- NAD(P)H-like scenes (probability 0.5 per scene): two components per pixel, free NADH with one lifetime per scene drawn from 0.3 to 0.5 ns, protein-bound NADH with one lifetime per HPA channel drawn from 1.5 to 4.0 ns (mixed per pixel with the channel amplitudes, so compartments differ), free fraction m + 0.1 (p − 0.5) clipped to 0.3 to 0.9, with m drawn from 0.4 to 0.85 per scene and p the scene's Perlin field. Sources of the ranges (values as reported in these papers; not fitted to FLUTE): Lakowicz et al. 1992, PNAS 89:1271 (free NADH about 0.4 ns, protein-bound NADH longer); Skala et al. 2007, PNAS 104:19494 (in cells free 0.3 to 0.5 ns, bound about 2 to 3 ns, free fraction about 0.6 to 0.8); Blacker et al. 2014, Nat Commun 5:3936 (free NAD(P)H 0.37 to 0.4 ns, enzyme-bound about 1.5 to more than 4 ns). Mono-exponential scenes (probability 0.5): one lifetime per pixel, the amplitude-weighted FLIMngo-style lifetime map with base lifetimes 0.2 to 4 ns plus a per-pixel spread of 0.1 to 1 ns (0.2 to 5 ns, covering fluorescein).
+- Real-data protocol (`scripts/eval_real_flute.py`, fixed before any DiffFLIM result): IRFs as wrapped Gaussians fitted to the summed decay of a fluorescein file with its reference lifetime fixed and moved by the model-free rise-time difference; Fluorescein_hMSC uses the IRF from Fluorescein_Embryo (4.0 ns), Fluorescein_Embryo the IRF from Fluorescein_hMSC (3.61 ns), Embryo the IRF from Fluorescein_Embryo and the three hMSC cell images the IRF from Fluorescein_hMSC. Background from the global fluorescein fit (scaled by the thinning factor) or 0 for the cell images. Part a: Fluorescein_hMSC thinned to 10, 20, 50, 100, 500 photons per pixel (seed 5000 + level), reference 3.61 ns, and Fluorescein_Embryo at full counts (about 20 photons), reference 4.0 ns: median, bias and median absolute relative error against the reference, spread (0.7413 × IQR / median), and for DiffFLIM the uncalibrated and calibrated coverage of the reference by the 90 % interval. Part b: the four cell images split into two independent Poisson halves (A binomial with p = 0.5, seed 6000 + file index; B = rest), median relative difference between the halves inside an Otsu mask; maps of all methods and the DiffFLIM 90 % half-width. DiffFLIM: overlapping 64 × 64 tiles (stride 32), 10 DDIM steps × 10 samples, separate sampler seeds for the full image and both halves.
+
+Results: The regenerated preview (`real_flute_sim_preview.png`) shows simulated decays that now span the real ones, from the fast cell decays dominated by the short NAD(P)H component to slow, fluorescein-like decays; simulated foreground pixels had a median of 119 photons (real cell images 76 to 263). The classical methods with the fixed protocol (16 minutes):
+
+| Fluorescein | Photons | MLE: bias / MARE / spread | Binned MLE 5 × 5 | Phasor |
+|---|---|---|---|---|
+| hMSC (ref. 3.61 ns) | 10 | −2.8 / 28.8 / 45.9 % | −0.2 / 5.7 / 8.5 % | −31.3 / 58.4 / 104 % |
+| hMSC | 20 | −1.3 / 20.3 / 31.1 % | −0.1 / 4.1 / 6.0 % | −14.2 / 44.0 / 75 % |
+| hMSC | 50 | −0.5 / 12.8 / 19.2 % | 0.0 / 2.6 / 3.8 % | −3.2 / 29.2 / 48 % |
+| hMSC | 100 | −0.2 / 9.1 / 13.5 % | 0.0 / 1.8 / 2.7 % | −2.2 / 21.1 / 33 % |
+| hMSC | 500 | 0.0 / 4.1 / 6.1 % | +0.1 / 0.9 / 1.3 % | −2.0 / 9.7 / 14 % |
+| Embryo (ref. 4.0 ns) | 20 | −2.0 / 22.1 / 34.1 % | −0.9 / 4.5 / 6.6 % | −22.1 / 50.5 / 87 % |
+
+| Cell image | MLE split-half | Binned MLE split-half | Phasor split-half | Median τ (MLE / binned / phasor) |
+|---|---|---|---|---|
+| Embryo | 19.9 % | 3.9 % | 21.6 % | 1.50 / 1.49 / 0.79 ns |
+| hMSC control | 14.1 % | 2.7 % | 21.0 % | 2.65 / 2.62 / 1.42 ns |
+| hMSC-ZOOM | 10.2 % | 2.0 % | 14.7 % | 2.50 / 2.51 / 1.35 ns |
+| hMSC_rotenone | 12.8 % | 2.6 % | 18.4 % | 2.43 / 2.41 / 1.26 ns |
+
+On Fluorescein_Embryo the binned MLE now gave 3.96 ns, against 4.04 ns in the earlier test: in the fixed protocol its IRF comes from Fluorescein_hMSC with τ fixed at 3.61 ns instead of 4.0 ns, which changes the fitted IRF slightly. On the cell images the phase lifetime is about half the MLE lifetime, as expected for multi-exponential decays with a strong short component (the phasor and a mono-exponential fit weight the components differently); these numbers are consistency measures, not accuracy.
+
+Compared to before: a fixed, documented protocol for the FLUTE data exists, and the classical numbers are available for comparison with DiffFLIM-FLUTE.
+
+Problems and fixes: The training was started before the evaluation sets and the real-data script were finished, so that the 200,000 steps fit into the night; the simulator, its tests and the preview were finished before the start, and the later changes (set builders, `forward_setup`) do not affect the training data. During the run `train_ids()` returned 568 IDs, not 474, because the HPA download had continued; this list was written to `data/splits/hpa_train.txt` and stored in the checkpoint. A first attempt to patch `scripts/eval_real_flute.py` failed on an anchor with a backslash and changed nothing; it was redone from a file.
+
+Next: DiffFLIM-FLUTE training and its post-training chain.
+
+### 2026-11-24 – DiffFLIM-FLUTE: training, simulated FLUTE test, calibration and the fixed real-data protocol
+
+Goal: Train DiffFLIM for the FLUTE instrument with the FLUTE configuration of simulator v3 (NAD(P)H-like option), evaluate it and its 100,000-step snapshot on the simulated FLUTE test set, calibrate both on the FLUTE calibration set, and apply both to the real FLUTE data with the protocol fixed the evening before. The questions were whether DiffFLIM-FLUTE gives the right lifetime on real fluorescein, how its error, flatness and coverage compare with the MLE and the binned MLE, and how consistent it is between two photon halves of the cell images.
+
+Changes:
+
+- `checkpoints/diffflim_flute.pt` (step 200,000) and `checkpoints/diffflim_flute_100k.pt` (step 100,000); training log `logs/diffflim_flute.csv`, status `logs/diffflim_flute_status.txt`.
+- Post-training chain (`scripts/post_training_chain_flute.sh`, started by `scripts/night_flute.sh`) for the tags `flute` and `flute_100k`: `results/tables/diffflim_<tag>.csv`, `coverage_<tag>.csv`, `calibration_factors_<tag>_s10.csv`, `coverage_calibrated_<tag>_s10.csv`, `real_flute_eval_<tag>.csv`, `real_flute_splithalf_<tag>.csv`; `results/figures/error_vs_photons_<tag>.png`, `diffflim_<tag>_examples.png`, `calibration_<tag>_s10.png`, `calibration_<tag>_s10_vs_photons.png`, `real_flute_eval_<tag>.png`, `real_flute_cells_<tag>.png`; caches `data/processed/preds_<tag>_s10_n10_test.npz` and `..._calib_sim_flute_calib.npz`.
+- `scripts/flute_sim_by_scene.py` (new, supporting check): the simulated FLUTE test results split into mono-exponential and NAD(P)H-like scenes, scored against the amplitude-weighted and the intensity-weighted truth, and for mono-exponential scenes in bins of the true lifetime; `results/tables/flute_sim_by_scene.csv`.
+- `scripts/flute_uniform_check.py` (new, supporting check): simulated FLUTE images with one uniform lifetime (1.0, 2.5, 3.61, 4.0 ns), 30 test-cell scenes, 10, 50 and 500 photons, as a full uniform field and inside the cell masks; `results/tables/flute_uniform_check.csv`.
+
+Settings:
+
+- Training: as DiffFLIM v2 (v-prediction, 4.76 M parameters, base width 64, batch 16, learning rate 2e-4 with 500 warm-up steps, EMA 0.999, seed 0), input 56 bins summed in pairs to 28 channels, `--simulator v3flute_nadh` (`flute_nadh_config()`), photon levels 10 to 1000 per foreground pixel as for v2. Training IDs: the 568 IDs returned by `train_ids()` at the start, stored in the checkpoint (no validation, test, second-test or calibration ID). 200,000 steps in 194.0 minutes (17.8 iterations per second, data wait about 1 %), snapshot at step 100,000, checkpoints every 15 minutes, no STOP file used.
+- Evaluation: 10 DDIM steps × 10 samples; simulated FLUTE test set (30 test cells, 40 images per level, levels 10, 20, 50, 100, 500); classical methods with the periodic forward model and the true IRF.
+- Calibration: per-level split-conformal factors on the FLUTE calibration set (74 cells, 1000 images), quadratic curve in the logarithm of the estimated photon level (`otsu_adaptive`), smoothed.
+- Real data: `scripts/eval_real_flute.py` unchanged (protocol in the previous entry), with `--ckpt`, `--tag` and the factors of the model.
+
+Results: The training loss fell to about 0.015 within the first 20,000 steps and changed little afterwards (logged values 0.010 to 0.017 between steps 20,000 and 200,000).
+
+Simulated FLUTE test set (median absolute relative lifetime error on the true foreground, bias in brackets; the classical methods on pixels with a valid fit):
+
+| Photons | DiffFLIM-FLUTE (200k) | DiffFLIM-FLUTE (100k) | MLE | Binned MLE 5 × 5 | Phasor |
+|---|---|---|---|---|---|
+| 10 | 10.4 % (+2.3) | 11.0 % (+2.6) | 35.4 % (+15.6) | 25.7 % (+19.4) | 42.7 % (+1.7) |
+| 20 | 8.8 % (+1.9) | 9.3 % (+2.1) | 27.9 % (+17.0) | 25.4 % (+18.6) | 31.7 % (+8.6) |
+| 50 | 7.3 % (+1.9) | 7.7 % (+1.9) | 21.7 % (+16.1) | 24.6 % (+17.9) | 22.3 % (+10.6) |
+| 100 | 6.8 % (+1.0) | 7.0 % (+1.7) | 17.5 % (+13.5) | 24.4 % (+17.6) | 17.8 % (+10.5) |
+| 500 | 5.9 % (+2.1) | 6.6 % (+2.6) | 8.3 % (+6.2) | 24.1 % (+17.5) | 12.0 % (+8.8) |
+
+The intensity error of DiffFLIM-FLUTE was 4.0, 3.2, 2.9, 2.6 and 2.2 % (MLE 21.7, 15.3, 9.7, 6.9 and 3.1 %). The large errors of the classical methods come mostly from the definition of the truth: in the NAD(P)H-like scenes (80 of the 200 test images) the truth is the amplitude-weighted lifetime, which a mono-exponential fit does not estimate. Split by scene type (`flute_sim_by_scene.csv`), the MLE was +57 to +63 % off the amplitude-weighted lifetime in NAD(P)H-like scenes but only −9 to −12 % off the intensity-weighted lifetime; DiffFLIM-FLUTE followed the amplitude-weighted lifetime with a bias of +5 to +8 % (+11 % for the snapshot at 500 photons). In the mono-exponential scenes, where both definitions agree, the error of DiffFLIM-FLUTE was 11.3, 8.3, 6.6, 5.8 and 3.8 % at 10 to 500 photons, against 25.9, 18.3, 11.5, 8.2 and 3.7 % for the MLE and 10.4, 9.5, 8.5, 8.2 and 7.9 % for the binned MLE 5 × 5. In these scenes DiffFLIM-FLUTE underestimated long lifetimes: for true lifetimes of 3.5 to 4.2 ns the bias was −14.7 % at 10 photons and −4.7 % at 500 photons (binned MLE −9.8 and −8.4 %, which here comes from averaging over the rough simulated lifetime maps; per-pixel MLE −2.9 and −0.3 %).
+
+Calibration on the FLUTE calibration set: the uncalibrated 90 % intervals covered 72 to 88 % of the test pixels; with per-level factors (2.73 at 10 photons to 1.99 at 500 photons) the pooled coverage was 91.1 % for the lifetime (image-bootstrap interval 88.6 to 93.3 %; per level 88.6 to 95.0 %) and 89.3 % for the intensity (88.1 to 90.5 %); at 68 % it was 69.3 and 67.7 %. The snapshot gave 90.8 and 88.7 %.
+
+Real fluorescein (fixed protocol; bias / median absolute relative error / spatial spread against the reference; calibrated 90 % coverage of the reference for DiffFLIM):
+
+| File, photons per pixel | MLE | Binned MLE 5 × 5 | DiffFLIM-FLUTE (200k) | coverage (200k) | DiffFLIM-FLUTE (100k) |
+|---|---|---|---|---|---|
+| hMSC (3.61 ns), 10 | −2.8 / 28.8 / 45.9 % | −0.2 / 5.7 / 8.5 % | −18.8 / 18.8 / 5.1 % | 99.8 % | −21.5 / 21.5 / 5.4 % |
+| hMSC, 20 | −1.3 / 20.3 / 31.1 % | −0.1 / 4.1 / 6.0 % | −11.1 / 11.1 / 3.5 % | 99.9 % | −12.0 / 12.0 / 3.3 % |
+| hMSC, 50 | −0.5 / 12.8 / 19.2 % | 0.0 / 2.6 / 3.8 % | −8.9 / 8.9 / 3.2 % | 99.8 % | −10.1 / 10.1 / 3.0 % |
+| hMSC, 100 | −0.2 / 9.1 / 13.5 % | 0.0 / 1.8 / 2.7 % | −7.9 / 7.9 / 2.7 % | 99.8 % | −8.5 / 8.5 / 2.4 % |
+| hMSC, 500 | 0.0 / 4.1 / 6.1 % | +0.1 / 0.9 / 1.3 % | −12.2 / 12.2 / 3.8 % | 99.8 % | −8.7 / 8.7 / 2.1 % |
+| Embryo (4.0 ns), about 20 | −2.0 / 22.1 / 34.1 % | −0.9 / 4.5 / 6.6 % | −10.1 / 10.1 / 1.9 % | 96.6 % | −13.0 / 13.0 / 2.0 % |
+
+DiffFLIM-FLUTE gave flat maps (spread 1.9 to 5.1 %, the lowest of all methods at 10 to 50 photons) but a median lifetime 8 to 19 % below the reference at every level, so its error was larger than that of the binned MLE everywhere and, at 500 photons, also larger than that of the per-pixel MLE. Because nearly every pixel had the same bias, the median absolute error equals the bias. The calibrated 90 % intervals contained the reference in 97 to 100 % of the pixels, but only because they were wide: the median predicted relative standard deviation on Fluorescein_hMSC was 11 to 18 % (on simulated test images 7 to 12 %), so with the factors of 2.0 to 2.7 the half-width was 28 to 48 % of τ (18 % on Fluorescein_Embryo). The coverage is therefore not evidence of good calibration here; the intervals were too wide and the point estimate was biased. At 500 photons the estimated photon level (532) was slightly above the calibrated range (up to 510) and the factor was clamped.
+
+Cell images (split-half difference, median over the Otsu mask; median lifetime of the full data):
+
+| Cell image | MLE | Binned MLE 5 × 5 | Phasor | DiffFLIM-FLUTE (200k) | DiffFLIM-FLUTE (100k) |
+|---|---|---|---|---|---|
+| Embryo | 19.9 % (1.50 ns) | 3.9 % (1.49 ns) | 21.6 % (0.79 ns) | 1.9 % (0.70 ns) | 1.9 % (0.69 ns) |
+| hMSC control | 14.1 % (2.65 ns) | 2.7 % (2.62 ns) | 21.0 % (1.42 ns) | 3.1 % (1.00 ns) | 3.2 % (0.97 ns) |
+| hMSC-ZOOM | 10.2 % (2.50 ns) | 2.0 % (2.51 ns) | 14.7 % (1.35 ns) | 2.7 % (0.99 ns) | 2.8 % (0.96 ns) |
+| hMSC_rotenone | 12.8 % (2.43 ns) | 2.6 % (2.41 ns) | 18.4 % (1.26 ns) | 2.6 % (0.90 ns) | 2.7 % (0.86 ns) |
+
+DiffFLIM-FLUTE was as consistent between photon halves as the binned MLE (1.9 to 3.1 % against 2.0 to 3.9 %) and five to ten times more consistent than the per-pixel MLE. Its lifetimes (0.7 to 1.0 ns) are on a different scale from the MLE (1.5 to 2.7 ns): the network was trained to return the amplitude-weighted lifetime, which for an NAD(P)H-like mixture with a large free fraction is much shorter than the lifetime of a mono-exponential fit. The maps show the same structures as the MLE maps (nuclei shorter than cytoplasm in the hMSC images). Without ground truth these numbers measure consistency, not accuracy; given the uniform-lifetime check below, the absolute DiffFLIM values on the cells should not be interpreted.
+
+Supporting check with uniform lifetimes (`flute_uniform_check.csv`, simulated, 30 images per condition): DiffFLIM-FLUTE underestimated a uniform lifetime at every tested value. As a full uniform field the bias was −8.4, −5.5 and −8.2 % at 3.61 ns (10, 50, 500 photons), −13.3, −7.5 and −7.5 % at 4.0 ns, −9.2, −8.3 and −25.4 % at 2.5 ns and −18.2, −8.3 and −20.7 % at 1.0 ns; inside the cell masks it was similar (−3.4 to −24.5 %). The MLE and the binned MLE were within 3.0 % in every condition. The predicted maps were almost flat (spread 0.8 to 2.3 %). DiffFLIM v2 on the corresponding test of the 256-bin simulator (`hallucination_uniform.csv`) was within −0.8 to +3.7 % except +10.3 % at 1 ns and 10 photons. The bias on real fluorescein is therefore mostly reproduced on simulated data and is a property of the DiffFLIM-FLUTE model and its training data, not mainly of the difference between the simulator and the instrument. Only the extra error at 10 photons (−18.8 % real against −8.4 % simulated) is not reproduced.
+
+Compared to before: DiffFLIM v2 was within a few percent on uniform lifetimes and most accurate on the v3 test set. DiffFLIM-FLUTE is the most accurate method on the simulated FLUTE test set and the most consistent on real cells together with the binned MLE, but it is biased on uniform lifetimes, both simulated and real, which the simulated test set with its structured lifetime maps did not reveal. On the real fluorescein data the binned MLE 5 × 5 remains the best method at every level.
+
+Problems and fixes: The previous entry stated that the mono-exponential scenes cover 0.2 to 5 ns. This is the range of the per-channel lifetimes; after the amplitude-weighted mixing of up to four channels the per-pixel lifetimes are pulled towards the middle: in the mono-exponential scenes of the FLUTE calibration set only 10.2 % of the foreground pixels had τ ≥ 3.61 ns, 3.4 % had τ ≥ 4.0 ns, and the largest value was 4.9 ns. Fluorescein therefore lies at the upper edge of the training distribution. This explains part of the underestimate of long lifetimes, but not the bias at 1.0 and 2.5 ns in the uniform check. The likely reason is that no training scene has a spatially uniform lifetime: mono-exponential scenes have a per-pixel spread of 0.1 to 1 ns and NAD(P)H-like scenes a varying free fraction, so a perfectly flat decay shape is outside the training data; this has not been tested. The snapshot at 100,000 steps was not better on real data (larger bias at 10 to 100 photons, smaller at 500 photons). The step-3 chains finished at 02:43, before the 03:30 limit, so STEP 4 (FLIMngo-FLUTE) was started (next entry).
+
+Next: Find the cause of the bias on uniform lifetimes (training scenes with uniform and near-uniform lifetimes, mono-exponential lifetimes drawn per pixel up to 5 or 6 ns, and a check whether the NAD(P)H-like share of the scenes shifts the estimate), then retrain DiffFLIM-FLUTE; until then report DiffFLIM-FLUTE on real FLUTE data only as a consistency result.
+
+### 2026-11-24 – FLIMngo architecture retrained on the FLUTE simulator (fair deep-learning baseline)
+
+Goal: Give DiffFLIM-FLUTE a deep-learning baseline trained on exactly the same data: the FLIMngo architecture retrained on the FLUTE configuration of simulator v3 with the same training IDs, selected on the FLUTE validation set, and added to the simulated and real FLUTE evaluations. This step was to run only if the DiffFLIM-FLUTE evaluations finished before 03:30; they finished at 02:43.
+
+Changes:
+
+- `checkpoints/flimngo_flute.pt` (best validation checkpoint); logs `logs/flimngo_flute.csv`, `logs/flimngo_flute_val.csv`, `logs/flimngo_flute_status.txt`.
+- `results/tables/flimngo_flute_test.csv` and `results/tables/flute_sim_comparison.csv` (`scripts/eval_flimngo_flute.py`).
+- `results/tables/real_flute_eval_flimngo_flute.csv`, `results/tables/real_flute_splithalf_flimngo_flute.csv`, `results/figures/real_flute_eval_flimngo_flute.png`, `results/figures/real_flute_cells_flimngo_flute.png` (`scripts/eval_real_flute.py --flimngo-ckpt`).
+- `scripts/flute_uniform_check.py`: option `--flimngo-ckpt` (and `--ckpts none`, `--out`); `results/tables/flute_uniform_check_flimngo.csv`. The DiffFLIM table `flute_uniform_check.csv` was not rerun.
+- `results/tables/flute_sim_by_scene.csv`: rerun with `--flimngo-ckpt`; the rows of the other methods were identical to the first run.
+
+Settings:
+
+- Training (`scripts/train_flimngo_flute.py`, started by `scripts/flimngo_flute_chain.sh`): FLIMngo architecture (9.44 M parameters), FLIMngo's input format for other time axes (each decay normalised to its maximum, the 56 bins resized linearly to 256 bins with `align_corners=True`, which equals the `scipy.ndimage.zoom` of order 1 in their repository to 2e-6; resized bin width 55 × 0.223 / 255 = 0.0481 ns), input mask `otsu_adaptive` on the counts, loss MSE on the true foreground, AdamW, learning rate 0.01, weight decay 1e-8, constant learning rate, batch 16, 16 data workers. Data: `flute_nadh_config()`, photon levels 10 to 1000, the 568 training IDs stored in `checkpoints/diffflim_flute.pt`. 150 minutes (79,921 steps, 9.1 iterations per second). Validation every 10 minutes on 200 images of the FLUTE validation set; selection on the median relative error.
+- Evaluation: as DiffFLIM-FLUTE; FLIMngo-FLUTE receives the `otsu_adaptive` mask of the counts (per 64 × 64 tile on the real images, non-overlapping tiles); true-foreground pixels outside this mask count with the output 0 on the simulated test set (as in training) and are left out on the real data.
+
+Results: The validation error fell from 16.7 % after 10 minutes to 7.6 % after 140 minutes (step 74,454, selected); the last checkpoint had 8.5 %.
+
+Simulated FLUTE test set (median absolute relative error on the true foreground, bias in brackets):
+
+| Photons | DiffFLIM-FLUTE | FLIMngo-FLUTE | Pixels outside the FLIMngo mask |
+|---|---|---|---|
+| 10 | 10.4 % (+2.3) | 13.1 % (−0.4) | 16.1 % |
+| 20 | 8.8 % (+1.9) | 10.8 % (+1.6) | 12.6 % |
+| 50 | 7.3 % (+1.9) | 8.9 % (+2.2) | 9.3 % |
+| 100 | 6.8 % (+1.0) | 8.0 % (+1.8) | 7.3 % |
+| 500 | 5.9 % (+2.1) | 6.4 % (+1.6) | 6.8 % |
+
+DiffFLIM-FLUTE was more accurate at every level. In the mono-exponential scenes the error of FLIMngo-FLUTE was 12.8, 10.8, 8.5, 7.6 and 5.6 % (DiffFLIM-FLUTE 11.3, 8.3, 6.6, 5.8 and 3.8 %), and for true lifetimes of 3.5 to 4.2 ns its bias was −19.3 % at 10 photons and −7.7 % at 500 photons (DiffFLIM-FLUTE −14.7 and −4.7 %).
+
+Real fluorescein (bias / median absolute relative error / spread; pixels outside the FLIMngo mask in brackets):
+
+| File, photons per pixel | Binned MLE 5 × 5 | DiffFLIM-FLUTE | FLIMngo-FLUTE |
+|---|---|---|---|
+| hMSC (3.61 ns), 10 | −0.2 / 5.7 / 8.5 % | −18.8 / 18.8 / 5.1 % | −10.8 / 10.8 / 6.2 % (50 %) |
+| hMSC, 20 | −0.1 / 4.1 / 6.0 % | −11.1 / 11.1 / 3.5 % | −7.2 / 7.2 / 4.5 % (48 %) |
+| hMSC, 50 | 0.0 / 2.6 / 3.8 % | −8.9 / 8.9 / 3.2 % | −4.0 / 4.0 / 3.2 % (45 %) |
+| hMSC, 100 | 0.0 / 1.8 / 2.7 % | −7.9 / 7.9 / 2.7 % | −3.4 / 3.4 / 2.8 % (45 %) |
+| hMSC, 500 | +0.1 / 0.9 / 1.3 % | −12.2 / 12.2 / 3.8 % | −4.4 / 4.4 / 2.5 % (45 %) |
+| Embryo (4.0 ns), about 20 | −0.9 / 4.5 / 6.6 % | −10.1 / 10.1 / 1.9 % | −8.0 / 8.0 / 4.1 % (47 %) |
+
+FLIMngo-FLUTE was also too low on fluorescein at every level, but less than DiffFLIM-FLUTE (−3.4 to −10.8 % against −7.9 to −18.8 %). The binned MLE remained the best method. On a uniform field the Otsu threshold of each tile splits the pixels into two halves of similar brightness, so FLIMngo-FLUTE was evaluated on about half of the pixels.
+
+Uniform-lifetime check (`flute_uniform_check_flimngo.csv`, same simulated images as for DiffFLIM-FLUTE): FLIMngo-FLUTE underestimated 2.5, 3.61 and 4.0 ns by 2.5 to 11.6 % (full field at 3.61 ns: −8.3, −3.7 and −6.4 % at 10, 50 and 500 photons; DiffFLIM-FLUTE −8.4, −5.5 and −8.2 %) and 1.0 ns at 500 photons by 16.8 % as a full field; at 1.0 ns and 10 to 50 photons it was within 4 %. Its bias on real fluorescein (−3.4 to −10.8 %) is close to its bias on the simulated uniform field. Two networks of different design trained on the same simulator therefore share the bias on uniform lifetimes, which points to the FLUTE training data rather than to the diffusion model.
+
+Cell images: FLIMngo-FLUTE gave split-half differences of 2.4, 2.6, 2.1 and 2.1 % (Embryo, hMSC control, hMSC-ZOOM, hMSC_rotenone) and median lifetimes of 0.74 to 1.16 ns (amplitude-weighted, like DiffFLIM-FLUTE), but only on 48, 26, 19 and 36 % of the pixels of the Otsu cell mask: its per-tile mask removed the dimmer parts of the cells and left visible tile borders. These split-half values are therefore not comparable with those of the other methods, which cover the whole mask.
+
+Compared to before: DiffFLIM-FLUTE is more accurate than a retrained FLIMngo with the same training data on the simulated FLUTE test set (1.2 to 2.7 percentage points at 10 to 100 photons, 0.5 points at 500 photons), as on v3 (Section 6.12 of the technical report). On real fluorescein the retrained FLIMngo is less biased, and both are worse than the binned MLE.
+
+Problems and fixes: The FLIMngo input mask, kept from its training for a like-for-like comparison, is not suited to uniform fields or to large real images processed in tiles; a mask computed once for the whole image, or a recall-oriented mask as on v3, would be needed for a fair real-data comparison of the maps. The first training interval logged 0.98 iterations per second with 87 % data wait (worker start-up); from the second interval on it ran at 9.1 iterations per second.
+
+Next: Remove the bias on uniform lifetimes in the FLUTE training data and retrain both networks; evaluate FLIMngo-FLUTE on the real images with a whole-image mask.
+
+### 2026-11-24 – Bin grouping of DiffFLIM-FLUTE, Poisson data-consistency guidance at sampling, and the FLUTE simulator v2 prior (prepared)
+
+Goal: Follow up the bias of DiffFLIM-FLUTE on real fluorescein without tuning anything on real data. (1) Check whether the grouping of the 56 FLUTE time bins before the condition encoder limits the lifetime precision. (2) Add an optional Poisson data-consistency guidance to DDIM sampling (no retraining), choose its settings on simulated validation data only, and evaluate it on the simulated uniform-lifetime check, the simulated FLUTE test set with recalibration, the fixed real FLUTE protocol, and for DiffFLIM v2 on a v3 uniform-lifetime check and the worm protocol. (3) Prepare, but not start, a FLUTE simulator with a new lifetime prior, its validation set and the overnight training command.
+
+Changes:
+
+- `src/models/guidance.py` (new): `PoissonGuidance`, the guidance step described under Settings.
+- `src/models/diffflim.py`: `ddim_sample(..., guide=None)` and `sample(..., guidance=None)`. Without guidance the sampler is unchanged.
+- `src/data/simulate_v3.py`: lifetime model `"flute_v2"` (`_flute_v2_lifetimes`, `_v2_scene_tau`, four new configuration fields whose defaults do not affect the other lifetime models), `flute_v2prior_config()`, `make_flute_v2_sets()`; `_flute_lifetimes` got the argument `force_nadh`.
+- `scripts/train_diffflim.py`: `--simulator v3flute_v2prior` and `--bin-factor`.
+- New scripts: `scripts/flute_bin_factor_check.py`, `scripts/select_guidance.py`, `scripts/flute_v2_prior_preview.py`, `scripts/guidance_chain.sh`, `scripts/guidance_chain_v2.sh`, and `scripts/night_flute_v2prior.sh` (prepared, not started).
+- Guidance options `--guide-kappa` and `--guide-stop` (or `--guide-window`) in `scripts/calibrate_diffflim.py`, `scripts/eval_real_flute.py`, `scripts/eval_real_celegans.py` and `scripts/flute_uniform_check.py`; `flute_uniform_check.py` also got `--sim v3`, `--ids val`, `--n-scenes` and `--no-classical`; `scripts/flute_sim_by_scene.py` got `--out`; `scripts/post_training_chain_flute.sh` accepts `TEST_DIR` and `CALIB_DIR`.
+- `scripts/eval_real_celegans.py`: the consistency check in `load_factor_curve` uses a relative tolerance (see Problems and fixes).
+- Tests: `tests/test_flute.py` has two new tests (`test_guidance_fixed_point_is_mle`, `test_flute_v2_prior_scenes`; 10 tests); the split test in `tests/test_simulate_v3.py` now includes the validation IDs.
+- Data: `data/raw/own/sim_flute_v2_{val,test,calib}/` (new paired sets of the v2 prior; the existing sets were not changed).
+- Results: `results/tables/{flute_bin_factor_crb, flute_bin_factor_mle, guidance_selection_flute, guidance_selection_v2, flute_uniform_check_guided_A, flute_uniform_check_guided_B, v3_uniform_check_guided_v2, flute_sim_by_scene_guided, flute_prior_lifetimes}.csv`; calibration files with the tags `flute_gA_s10`, `flute_gB_s10`, `v2g_extra_s10`; real-data files with the tags `flute_gA`, `flute_gB` (FLUTE) and `v2g` (worms); `results/figures/flute_prior_lifetimes.png`. Prediction caches `data/processed/preds_{flute_gA, flute_gB, v2g}_s10_n10_*.npz`, `data/processed/real_celegans_diffflim_v2g.npz`.
+
+Settings:
+
+- Guidance: at every DDIM step inside the guidance window, after the network's estimate x0 of the clean maps (normalised log τ and log(1 + I)) is clipped, one Fisher-scoring step per channel moves x0 towards a higher Poisson likelihood of the measured counts at full time resolution (56 or 256 bins, not the binned network input): θ ← θ + clip(g / (F + κ), ±0.5), where g is the score and F the diagonal Fisher information of the log-likelihood with λ = I · d(τ) + b. d(τ) is the mono-exponential decay convolved with the image's IRF, i.e. exactly the forward model and background of the MLE in each protocol (simulated sets: the image's IRF and background; real FLUTE: the periodic model with the cross-estimated IRF and the protocol's background; worms: the aligned PMT IRF and the recording's background). It is tabulated on 2048 lifetimes from 0.02 to 60 ns and interpolated in log τ. κ acts as the precision of a Gaussian prior centred on the network's estimate (prior standard deviation in log τ about 2.39 / √κ: κ = 10 gives 76 %, κ = 1000 gives 7.6 %); κ = 0 is a full step towards the per-pixel MLE. The noise estimate of the DDIM update is recomputed from the moved x0. The network is not differentiated; sampling takes 20 to 40 % longer.
+- Selection (`scripts/select_guidance.py`): the first 20 images per level of the validation set (FLUTE: `sim_flute_val`; v3: `sim_v3_val`) and a uniform-lifetime check built from the 40 validation cells (scene seed 82000, 8 scenes, layouts field and cells, 1.0 / 2.5 / 3.61 / 4.0 ns, 10 / 50 / 500 photons, 192 images). Rule A, fixed before the run: the lowest sum of the mean validation error over the levels and the mean |bias| on the uniform check. Grid for DiffFLIM-FLUTE: κ in {0, 10, 30, 100, 300, 1000} times guidance on the first 20, 30, 50, 80 or 100 % of the steps; for DiffFLIM v2: κ in {10, 100, 1000} times 20, 50, 100 %.
+- Rule B (FLUTE only, added after the first ten grid rows had shown the effect of guidance on the NAD(P)H-like scenes): the same score with the validation error of the mono-exponential scenes only, for samples that are known to be mono-exponential such as fluorescein. It is computed from the same table; nothing was rerun.
+- Bin check (`scripts/flute_bin_factor_check.py`): Cramér–Rao bound for a mono-exponential with the periodic FLUTE model, 2 % background, median over the six FLUTE IRFs at the median peak position; MLE and binned MLE on the uniform field images of `flute_uniform_check.py` (first 10 scenes) summed in groups of 1, 2, 4 or 7 bins with the equally grouped forward model.
+- FLUTE v2 prior (`flute_v2prior_config()`): instrument part as `flute_nadh_config()`. Scene types: 15 % uniform (one lifetime τ0), 15 % near-uniform (τ0 · (1 + a (p − 0.5)), a from 0.02 to 0.2, p the Perlin field), 35 % structured mono-exponential (the channel-mixed FLIMngo map, min-max normalised and mapped in log τ onto a scene interval of log-width up to ln 4 around τ0, shifted to lie in 0.2 to 6 ns), 35 % NAD(P)H-like (unchanged). τ0 is drawn half log-uniformly and half uniformly on 0.2 to 6 ns. Sets: validation (40 validation cells, seed 73000), test (30 test cells, 33000) and calibration (74 calibration cells, 43000), 40 / 40 / 200 images per level at 10 to 500 photons.
+
+Results:
+
+(1) Bin grouping. DiffFLIM-FLUTE sums pairs of bins (bin factor 2): the condition encoder sees 28 bins of 0.446 ns (DiffFLIM v2: 32 bins of 0.78 ns). The Cramér–Rao bound with factor 2 was 0.2 to 0.7 % above the bound without grouping for lifetimes of 1 to 6 ns and 2.3 % above at 0.4 ns; factor 4 cost 0.8 to 2.5 % (11 % at 0.4 ns), and only 7 or fewer bins cost 4 to 17 %. On the uniform simulated fields the MLE error with factor 2 differed from the ungrouped fit by at most 0.25 percentage points (for example 29.82 against 29.68 % at 3.61 ns and 10 photons) and the binned MLE by at most 0.04 points. The grouping therefore does not limit the precision and cannot explain an 8 to 19 % bias. The author decided to keep factor 2 for the next training run, so that only the lifetime prior changes between the two runs; the option `--bin-factor` is ready.
+
+(2a) Selection for DiffFLIM-FLUTE. Without guidance the score was 16.93 (validation error 6.89 % + uniform |bias| 10.04 %). Every guided setting lowered the uniform bias (to 0.4 to 6.5 %), but strong guidance raised the validation error, up to 41 %, because half of the validation scenes are NAD(P)H-like: there the mono-exponential likelihood pulls the lifetime towards the intensity-weighted value, which is about 60 % above the amplitude-weighted truth. Rule A chose κ = 1000 on the first 20 % of the steps (setting A; score 15.64 = 9.11 + 6.53). Rule B chose κ = 10 on the first 50 % of the steps (setting B; mono-exponential validation error 5.65 % against 6.31 % without guidance, uniform |bias| 1.00 %). Guiding all ten steps was worse than guiding only the early ones for every κ: the last steps without guidance let the network smooth the noise that the likelihood step brings in (single-image example at 50 photons, κ = 0: spread 18.7 % with guidance at all steps, 1.3 % with guidance on the first half).
+
+(2b) Uniform-lifetime check on the 30 test cells (bias of the median; unguided / A / B):
+
+| Layout, τ | 10 photons | 50 photons | 500 photons |
+|---|---|---|---|
+| field, 1.0 ns | −18.2 / −17.6 / −2.1 % | −8.3 / −7.2 / +0.8 % | −20.7 / −9.6 / −1.2 % |
+| field, 2.5 ns | −9.2 / −8.8 / +0.3 % | −8.3 / −5.9 / +0.6 % | −25.4 / −5.8 / +0.1 % |
+| field, 3.61 ns | −8.4 / −8.0 / −1.7 % | −5.5 / −4.3 / −0.2 % | −8.2 / −2.0 / +0.3 % |
+| field, 4.0 ns | −13.3 / −13.0 / −4.4 % | −7.5 / −7.0 / −0.9 % | −7.5 / −3.8 / +0.1 % |
+| cells, 3.61 ns | −7.5 / −7.4 / −1.9 % | −3.4 / −2.9 / +0.3 % | −4.1 / −1.8 / +0.5 % |
+| cells, 4.0 ns | −10.1 / −9.8 / −3.5 % | −3.6 / −3.3 / +0.1 % | −4.1 / −2.4 / +0.2 % |
+
+Setting B removed the bias on uniform lifetimes (within ±2.1 % except −4.4 and −3.5 % at 4.0 ns and 10 photons); setting A removed it mainly at 500 photons.
+
+(2c) Simulated FLUTE test set (median absolute relative error against the amplitude-weighted truth, bias in brackets; 10 / 20 / 50 / 100 / 500 photons):
+
+- unguided: 10.4 (+2.3), 8.8 (+1.9), 7.3 (+1.9), 6.8 (+1.0), 5.9 (+2.1) %
+- A: 10.8 (+3.1), 9.3 (+2.9), 8.5 (+4.3), 8.3 (+4.4), 7.3 (+5.5) %
+- B: 21.6 (+16.5), 19.5 (+15.0), 15.8 (+12.2), 13.1 (+10.1), 7.7 (+6.0) %
+
+Split by scene type (`flute_sim_by_scene_guided.csv`), B was the most accurate method in the mono-exponential scenes (8.5 / 7.7 / 6.3 / 5.3 / 3.3 %, bias −0.5 to +0.2 %; unguided 11.3 / 8.3 / 6.6 / 5.8 / 3.8 %, bias −4.1 to −0.5 %; MLE 25.9 / 18.3 / 11.5 / 8.2 / 3.7 %; binned MLE 10.4 / 9.5 / 8.5 / 8.2 / 7.9 %), and for true lifetimes of 3.5 to 4.2 ns its bias was −10.7 to −2.8 % (unguided −14.7 to −4.7 %). In the NAD(P)H-like scenes B had 56 to 61 % error against the amplitude-weighted truth but 10.6 to 13.6 % against the intensity-weighted one, i.e. it behaved like a mono-exponential fit; A had 10.3 to 32.6 % (unguided 8.7 to 10.4 %). After recalibration with per-level factors on the FLUTE calibration set the pooled 90 % coverage of the lifetime was 90.6 % for A (relative width 0.63; unguided 91.1 %, 0.58) and 93.0 % for B, but B needed factors of 6.5 to 11.9 (relative width 1.35), because the calibration set is half NAD(P)H-like. The intensity coverage was 89.3 to 89.4 % in all three cases.
+
+(2d) Real fluorescein, fixed protocol (bias / median absolute relative error / spread):
+
+| File, photons per pixel | Binned MLE 5 × 5 | DiffFLIM-FLUTE | with A | with B |
+|---|---|---|---|---|
+| hMSC (3.61 ns), 10 | −0.2 / 5.7 / 8.5 % | −18.8 / 18.8 / 5.1 % | −17.9 / 17.9 / 4.8 % | −3.8 / 3.9 / 2.3 % |
+| hMSC, 20 | −0.1 / 4.1 / 6.0 % | −11.1 / 11.1 / 3.5 % | −10.2 / 10.2 / 3.2 % | −1.8 / 1.9 / 1.8 % |
+| hMSC, 50 | 0.0 / 2.6 / 3.8 % | −8.9 / 8.9 / 3.2 % | −7.2 / 7.2 / 2.6 % | −0.8 / 1.0 / 1.3 % |
+| hMSC, 100 | 0.0 / 1.8 / 2.7 % | −7.9 / 7.9 / 2.7 % | −5.4 / 5.4 / 2.0 % | −0.5 / 0.8 / 1.1 % |
+| hMSC, 500 | +0.1 / 0.9 / 1.3 % | −12.2 / 12.2 / 3.8 % | −3.8 / 3.8 / 1.4 % | −0.4 / 0.8 / 1.0 % |
+| Embryo (4.0 ns), about 20 | −0.9 / 4.5 / 6.6 % | −10.1 / 10.1 / 1.9 % | −9.6 / 9.6 / 1.8 % | −2.9 / 2.9 / 1.8 % |
+
+With setting B, chosen on simulated mono-exponential scenes, DiffFLIM-FLUTE had a smaller error than the binned MLE on Fluorescein_hMSC at every thinning level (3.9 against 5.7 % at 10 photons, 0.8 against 0.9 % at 500) and on Fluorescein_Embryo (2.9 against 4.5 %), with a remaining bias of −0.4 to −3.8 % that grows at low photon counts. Its predicted relative standard deviation was 2.9 to 4.9 %, and its uncalibrated 90 % interval contained the reference in 94.5 to 99.8 % of the pixels (Embryo 94.6 %); the calibrated intervals with the B factors covered 98.6 to 99.9 % but are far too wide to be useful. Setting A reduced the bias only at 50 to 500 photons.
+
+Cell images (split-half difference; median lifetime of the full data): with B, 3.75 / 3.64 / 2.79 / 3.27 % for Embryo, hMSC control, hMSC-ZOOM and hMSC_rotenone (unguided 1.88 / 3.13 / 2.71 / 2.65 %; binned MLE 3.88 / 2.73 / 2.00 / 2.57 %), and lifetimes of 1.51 / 2.71 / 2.57 / 2.50 ns, close to the mono-exponential fits (MLE and binned MLE 1.49 to 2.65 ns) and no longer amplitude-weighted (unguided 0.70 to 1.00 ns). With A, 1.88 / 2.73 / 2.18 / 2.29 % and 0.91 to 1.63 ns. On multi-exponential samples the guidance therefore changes what is estimated.
+
+(2e) DiffFLIM v2. Rule A on the v3 validation set chose κ = 10 on the first 50 % of the steps (score 7.77 against 10.53 without guidance; validation error 6.02 against 5.58 %, uniform |bias| 1.75 against 4.95 %). On the v3 uniform check the largest biases, at 1 ns and 10 photons, fell from +17.2 % (field) and +10.3 % (cells) to +2.1 and +1.1 %, and all other conditions were within ±2.2 % (unguided −3.5 to +3.7 %). On the v3 test set, however, guidance made DiffFLIM v2 less accurate: 11.2 / 10.4 / 9.7 / 9.0 / 7.4 / 6.9 % at 10 to 1000 photons against 9.5 / 8.4 / 7.5 / 6.5 / 4.7 / 4.3 %, with a bias of +6.5 to +7.0 % (unguided +1.1 to +2.6 %). The validation subset had predicted a much smaller cost (+0.2 to +0.7 points). Both sets have about 85 % multi-component pixels, but the ratio of intensity- to amplitude-weighted lifetime is higher on the test set (median 1.108 against 1.083), and 20 images per level is a small validation sample. After recalibration on the 74 calibration cells the pooled 90 % lifetime coverage on the test set was 86.5 % (interval 84.2 to 88.6 %; per level 84.8 to 88.2 %), below nominal (unguided 90.0 %).
+
+On the worm recordings (fixed protocol, new factors) guided DiffFLIM v2 gave a larger group difference than unguided (Aβ-mScarlet 2.81 ns, mScarlet 3.26 ns, difference 0.45 ns against 0.35 ns; MLE 0.53 ns, binned MLE 0.52 ns), p = 0.0022 (unguided 0.0087), and a smaller split-half difference (2.9 against 3.4 %; binned MLE 3.5 %). In the simulated reference of the same test the guided halves differed by 6.1 to 8.5 % (unguided 6.4 to 7.0 %) and the calibrated intervals covered the truth in 86.9 to 88.7 % of the pixels (unguided 90.9 to 91.7 %).
+
+(3) FLUTE simulator v2 prior. In 600 training scenes of the prior used so far, 3.9 % of all foreground pixels and 8.0 % of the mono-exponential pixels had τ ≥ 3.61 ns, 1.9 % of the mono-exponential pixels ≥ 4 ns and none ≥ 5 ns (maximum 4.90 ns); there were no uniform scenes. With the v2 prior the shares were 18.1 % and 27.6 % at ≥ 3.61 ns, 23.0 % of the mono-exponential pixels ≥ 4 ns and 8.2 % ≥ 5 ns (maximum 6.0 ns), with 87 uniform and 140 near-uniform scenes out of 600 (`flute_prior_lifetimes.png`). The overnight command is `bash scripts/night_flute_v2prior.sh` (training 200,000 steps with snapshot at 100,000, the same 568 training IDs, bin factor 2; then evaluation on the v2-prior test and calibration sets, on the old fixed FLUTE test set, the uniform check and a new guidance selection on the v2-prior validation set; about 4.5 hours). It was smoke-tested for 60 steps and not started.
+
+Compared to before: Guidance does not need retraining and, with a setting chosen on simulated mono-exponential data, removed the fluorescein bias of DiffFLIM-FLUTE (−8 to −19 % before, −0.4 to −3.8 % after) and made it more accurate than the binned MLE on real fluorescein. It does not remove the cause, the training prior, and it is only valid where the mono-exponential forward model is valid: on multi-exponential data (NAD(P)H-like scenes, real cells, v3 test set) it moves the estimate towards a mono-exponential fit, which is a different quantity than the amplitude-weighted lifetime the models were trained to give.
+
+Problems and fixes: A first smoke test of the selection stopped with a CUDA index error: with κ = 0, pixels without signal have g = F = 0, so the update was 0 / 0 = NaN; the denominator is now kept at 1e-6 or more. The first guidance chain stopped at the real FLUTE protocol with setting B: `load_factor_curve` checks that the quadratic fit reproduces the tabulated factors within 0.002, which the four significant digits of the CSV cannot meet for factors around 10; the check now also allows a relative difference of 0.2 % (it is a consistency check of the file, not a calibration step), and the chain was resumed from that step. `tests/test_simulate_v3.py::test_split_disjoint_and_fixed` failed because it predated the validation IDs, which `train_ids()` correctly excludes; the test now includes them (11 tests pass). Rule B was introduced after part of the grid results had been seen; it is stated as a second, use-specific rule and not as the pre-declared one. The calibration of setting B on the mixed FLUTE calibration set is not meaningful; a calibration on mono-exponential scenes would be needed if B is used with intervals. In the scene-type count of `flute_prior_lifetimes.csv`, structured scenes with a narrow lifetime interval are counted as near-uniform.
+
+Next: Run `scripts/night_flute_v2prior.sh`. Keep guidance off by default; use setting B only for samples known to be mono-exponential, with a calibration on mono-exponential scenes; do not use it for NAD(P)H or other multi-exponential samples. Check the guided DiffFLIM v2 on a larger validation sample before any use, since the test cost was larger than predicted.
