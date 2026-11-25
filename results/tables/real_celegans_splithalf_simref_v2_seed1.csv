@@ -1,0 +1,4 @@
+photons_full,photons_half,n_images,mad_AB_rel_pct,overlap90_frac,B_in_A90_frac,coverage90_A_vs_truth,median_halfwidth90_rel_pct,mare_A_vs_truth_pct
+20,10,10,6.976,0.9986,0.9722,0.9159,32.84,12.19
+50,25,10,6.572,0.9988,0.9627,0.9138,28.61,9.817
+100,50,10,6.277,0.9976,0.9553,0.918,25.3,8.478

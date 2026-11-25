@@ -1,6 +1,8 @@
 model,checkpoint,train_minutes,train_steps,n_train_ids,n_test_images,tau_mare_pct_10,tau_mare_pct_100,tau_mare_pct_1000,tau_mare_pct_all,tau_bias_pct_all,int_mare_pct_10,int_mare_pct_100,int_mare_pct_1000,int_mare_pct_all,cov90_tau_per_level,cov90_int_per_level,real_tau_abeta_ns,real_tau_mscarlet_ns,real_mannwhitney_p,real_splithalf_diff_pct
 v2,checkpoints/diffflim_v2.pt,360,186116,246,240,9.541,6.527,4.272,6.396,1.506,4.443,2.817,2.022,2.836,0.9003,0.8759,2.716,3.067,0.008658,3.411
 v2_3h,checkpoints/diffflim_v2_180min.pt,180,92168,246,240,9.952,6.815,4.639,6.738,1.697,4.599,2.902,2.298,3.001,0.9021,0.8766,2.662,3.089,0.002165,3.048
+v2_seed1,checkpoints/diffflim_v2_seed1.pt,337.5,186116,246,240,9.517,6.555,4.307,6.435,1.575,4.344,2.916,2.31,2.92,0.9014,0.8748,2.803,3.147,0.004329,3.494
+v2_seed1_3h,checkpoints/diffflim_v2_seed1_3h.pt,167,92168,246,240,10.09,6.855,4.557,6.75,1.859,4.535,2.969,2.646,3.104,0.9011,0.8722,2.767,3.152,0.004329,3.693
 v2long,checkpoints/diffflim_v2long.pt,660,349713,246,240,9.458,6.345,3.945,6.145,1.23,4.251,2.729,1.866,2.71,0.901,0.8788,2.773,3.079,0.01515,4.327
 v2long_9h,checkpoints/diffflim_v2long_9h.pt,530.1,279000,246,240,9.562,6.301,3.909,6.136,1.119,4.335,2.779,1.841,2.727,0.902,0.877,2.731,3.044,0.01515,4.958
 v3cells,checkpoints/diffflim_v3cells.pt,403.4,186116,386,240,9.434,6.508,4.398,6.391,1.666,4.423,2.811,2.169,2.873,0.901,0.8763,2.81,3.15,0.004329,2.843

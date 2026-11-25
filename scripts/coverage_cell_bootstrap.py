@@ -19,6 +19,7 @@ Writes results/tables/coverage_cellboot_v2.csv (50 DDIM steps, 10 samples) or
 
 Usage:
     python scripts/coverage_cell_bootstrap.py               # 10 DDIM steps (default since 2026-11-22)
+    python scripts/coverage_cell_bootstrap.py --tag v2_seed1  # another model (caches preds_<tag>_s10_n10_*.npz)
     python scripts/coverage_cell_bootstrap.py --steps 50    # previous setting
 """
 import argparse
@@ -106,14 +107,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--steps", type=int, default=10, help="DDIM steps of the cached predictions (10 default, 50 before)")
     ap.add_argument("--n-samples", type=int, default=10)
+    ap.add_argument("--tag", default="v2", help="prediction-cache tag (default v2); output coverage_cellboot_<tag>...")
     args = ap.parse_args()
     rng = np.random.default_rng(2026)
     cal_dirs = [RAW_OWN / "sim_v3_calib", RAW_OWN / "sim_v3_calib_extra"]
-    calib = cd.concat_records([load_rec(cd.preds_cache("v2", cd.calib_cache_key(d), args.steps, args.n_samples),
+    calib = cd.concat_records([load_rec(cd.preds_cache(args.tag, cd.calib_cache_key(d), args.steps, args.n_samples),
                                         files_of(d, "calib"))
                                for d in cal_dirs])
     test_files = files_of(RAW_OWN / "sim_v3_test", "test")
-    test = load_rec(cd.preds_cache("v2", "test", args.steps, args.n_samples), test_files)
+    test = load_rec(cd.preds_cache(args.tag, "test", args.steps, args.n_samples), test_files)
     cal_cells, cal_cell_idx = np.unique(calib["hpa_id"], return_inverse=True)
     test_cells, test_cell_idx = np.unique(test["hpa_id"], return_inverse=True)
     print(f"Calibration: {len(calib['photons'])} images from {len(cal_cells)} cells; "
@@ -178,7 +180,7 @@ def main():
 
     TABLES.mkdir(parents=True, exist_ok=True)
     suffix = "" if (args.steps, args.n_samples) == (50, 10) else f"_s{args.steps}_n{args.n_samples}"
-    out = TABLES / f"coverage_cellboot_v2{suffix}.csv"
+    out = TABLES / f"coverage_cellboot_{args.tag}{suffix}.csv"
     with open(out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()
